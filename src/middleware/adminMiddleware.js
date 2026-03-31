@@ -22,9 +22,11 @@ const adminMiddleware = async (req, res, next) => {
             return res.status(401).json({ message: "User does not exist!" });
 
         // Check token is not present in redis blocklist
-        const IsBlocked = await redisClient.exists(`token:${token}`);
-        if (IsBlocked)
-            return res.status(401).json({ message: "Session expired. Please login again." });
+        if (redisClient.isOpen) {
+            const IsBlocked = await redisClient.exists(`token:${token}`);
+            if (IsBlocked)
+                return res.status(401).json({ message: "Session expired. Please login again." });
+        }
 
         req.result = result;
         next();

@@ -14,6 +14,36 @@ const SUBJECT_ALIASES = {
     c: "CProgramming"
 };
 
+const TAG_SUBJECT_MAP = {
+    array: "DSA",
+    linkedlist: "DSA",
+    graph: "DSA",
+    dp: "DSA",
+    stack: "DSA",
+    queue: "DSA",
+    tree: "DSA",
+    string: "DSA",
+    math: "DSA",
+    bitmanipulation: "DSA",
+    sorting: "DAA",
+    searching: "DAA",
+    greedy: "DAA",
+    divideandconquer: "DAA",
+    dynamicprogramming: "DAA",
+    branchandbound: "DAA",
+    networkflow: "DAA",
+    classes: "OOPs",
+    inheritance: "OOPs",
+    polymorphism: "OOPs",
+    encapsulation: "OOPs",
+    abstraction: "OOPs",
+    pointers: "CProgramming",
+    structures: "CProgramming",
+    filehandling: "CProgramming",
+    functions: "CProgramming",
+    loops: "CProgramming"
+};
+
 const normalizeSubject = (value) => {
     if (!value || typeof value !== "string") {
         return null;
@@ -21,6 +51,40 @@ const normalizeSubject = (value) => {
 
     const compact = value.replace(/[\s&_/-]+/g, "").toLowerCase();
     return SUBJECT_ALIASES[compact] || value;
+};
+
+const normalizeDifficulty = (value) => {
+    if (!value || typeof value !== "string") {
+        return value;
+    }
+
+    const normalized = value.toLowerCase();
+    return ["easy", "medium", "hard"].includes(normalized) ? normalized : value;
+};
+
+const deriveSubjectFromProblem = (problem = {}) => {
+    const normalizedSubject = normalizeSubject(problem.subject);
+    if (normalizedSubject && normalizedSubject !== problem.subject) {
+        return normalizedSubject;
+    }
+    if (normalizedSubject) {
+        return normalizedSubject;
+    }
+
+    const normalizedTag = typeof problem.tags === "string"
+        ? problem.tags.replace(/[\s&_/-]+/g, "").toLowerCase()
+        : "";
+
+    return TAG_SUBJECT_MAP[normalizedTag] || null;
+};
+
+const hydrateProblem = (problem) => {
+    const plainProblem = typeof problem?.toObject === "function" ? problem.toObject() : { ...problem };
+    return {
+        ...plainProblem,
+        subject: deriveSubjectFromProblem(plainProblem),
+        difficulty: normalizeDifficulty(plainProblem.difficulty)
+    };
 };
 
 const buildProblemFilters = (query = {}, params = {}) => {
@@ -157,7 +221,7 @@ const getProblemById = async (req, res) => {
         return res.status(200).json({
             success: true,
             problem: {
-                ...getProblem.toObject(),
+                ...hydrateProblem(getProblem),
                 secureUrl: editorial?.secureUrl || null,
                 thumbnailUrl: editorial?.thumbnailUrl || null,
                 duration: editorial?.duration || 0
@@ -172,8 +236,25 @@ const getProblemById = async (req, res) => {
 const getAllProblem = async (req, res) => {
     try {
         const filters = buildProblemFilters(req.query);
-        const getProblem = await Problem.find(filters).select("_id title difficulty subject tags");
-        return res.status(200).json(serializeProblemList(getProblem, filters));
+        const getProblem = await Problem.find({}).select("_id title difficulty subject tags");
+        const hydratedProblems = getProblem.map(hydrateProblem);
+        const filteredProblems = hydratedProblems.filter((problem) => {
+            if (filters.subject && problem.subject !== filters.subject) {
+                return false;
+            }
+
+            if (filters.difficulty && problem.difficulty !== filters.difficulty) {
+                return false;
+            }
+
+            if (filters.tags && problem.tags !== filters.tags) {
+                return false;
+            }
+
+            return true;
+        });
+
+        return res.status(200).json(serializeProblemList(filteredProblems, filters));
     } catch (err) {
         console.error("Error fetching problems:", err);
         res.status(500).json({ message: "Failed to fetch problems" });
@@ -188,8 +269,10 @@ const getProblemsBySubject = async (req, res) => {
             return res.status(400).json({ message: "A valid subject is required" });
         }
 
-        const problems = await Problem.find(filters).select("_id title difficulty subject tags");
-        return res.status(200).json(serializeProblemList(problems, filters));
+        const problems = await Problem.find({}).select("_id title difficulty subject tags");
+        const hydratedProblems = problems.map(hydrateProblem);
+        const filteredProblems = hydratedProblems.filter((problem) => problem.subject === filters.subject);
+        return res.status(200).json(serializeProblemList(filteredProblems, filters));
     } catch (err) {
         console.error("Error fetching problems by subject:", err);
         res.status(500).json({ message: "Failed to fetch problems by subject" });
@@ -204,8 +287,10 @@ const getProblemsByCategory = async (req, res) => {
             return res.status(400).json({ message: "A valid category is required" });
         }
 
-        const problems = await Problem.find(filters).select("_id title difficulty subject tags");
-        return res.status(200).json(serializeProblemList(problems, filters));
+        const problems = await Problem.find({}).select("_id title difficulty subject tags");
+        const hydratedProblems = problems.map(hydrateProblem);
+        const filteredProblems = hydratedProblems.filter((problem) => problem.subject === filters.subject);
+        return res.status(200).json(serializeProblemList(filteredProblems, filters));
     } catch (err) {
         console.error("Error fetching problems by category:", err);
         res.status(500).json({ message: "Failed to fetch problems by category" });
@@ -214,17 +299,32 @@ const getProblemsByCategory = async (req, res) => {
 
 const getSubjectStats = async(req, res) => {
     try {
-        const stats = await Problem.aggregate([
-            {
-                $group: {
-                    _id: '$subject',
-                    count: { $sum: 1 },
-                    easy: { $sum: { $cond: [{ $eq: ['$difficulty', 'easy'] }, 1, 0] } },
-                    medium: { $sum: { $cond: [{ $eq: ['$difficulty', 'medium'] }, 1, 0] } },
-                    hard: { $sum: { $cond: [{ $eq: ['$difficulty', 'hard'] }, 1, 0] } },
-                }
+        const problems = await Problem.find({}).select("_id subject difficulty tags");
+        const statsMap = new Map();
+
+        for (const problem of problems.map(hydrateProblem)) {
+            if (!problem.subject) {
+                continue;
             }
-        ]);
+
+            if (!statsMap.has(problem.subject)) {
+                statsMap.set(problem.subject, {
+                    _id: problem.subject,
+                    count: 0,
+                    easy: 0,
+                    medium: 0,
+                    hard: 0
+                });
+            }
+
+            const subjectStats = statsMap.get(problem.subject);
+            subjectStats.count += 1;
+            if (problem.difficulty === "easy") subjectStats.easy += 1;
+            if (problem.difficulty === "medium") subjectStats.medium += 1;
+            if (problem.difficulty === "hard") subjectStats.hard += 1;
+        }
+
+        const stats = Array.from(statsMap.values());
         return res.status(200).json({
             success: true,
             stats
@@ -253,13 +353,17 @@ const getUserStats = async(req, res) => {
                 path: 'problemId',
                 select: '_id title difficulty subject'
             });
+
+        const allProblems = await Problem.find({}).select("_id title difficulty subject tags");
+        const hydratedAllProblems = allProblems.map(hydrateProblem);
+        const hydratedSolvedProblems = user.problemSolved.map(hydrateProblem);
         
         const subjectStats = {};
         const subjects = ['DSA', 'DAA', 'OOPs', 'CProgramming'];
         
         for (const subject of subjects) {
-            const totalProblems = await Problem.countDocuments({ subject });
-            const solvedInSubject = user.problemSolved.filter(p => p.subject === subject).length;
+            const totalProblems = hydratedAllProblems.filter((problem) => problem.subject === subject).length;
+            const solvedInSubject = hydratedSolvedProblems.filter((p) => p.subject === subject).length;
             subjectStats[subject] = {
                 total: totalProblems,
                 solved: solvedInSubject,
@@ -277,7 +381,7 @@ const getUserStats = async(req, res) => {
                 _id: user._id,
             },
             totalSolved: user.problemSolved.length,
-            solvedProblems: user.problemSolved,
+            solvedProblems: user.problemSolved.map(hydrateProblem),
             recentSubmissions: submissions,
             subjectStats,
             totalSubmissions,
@@ -301,7 +405,7 @@ const solvedAllProblemByUser = async(req,res)=>{
             return res.status(404).json({ message: "User not found!" });
         res.status(200).json({
             success: true,
-            problems: user.problemSolved
+            problems: user.problemSolved.map(hydrateProblem)
         });
     }
     catch(err){
