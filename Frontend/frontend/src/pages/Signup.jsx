@@ -6,7 +6,6 @@ import { useDispatch, useSelector } from 'react-redux';
 import { useNavigate, NavLink } from 'react-router';
 import { registerUser, clearError } from '../authSlice';
 import { Code, Eye, EyeOff, ArrowRight, AlertCircle } from 'lucide-react';
-import InteractiveDotField from '../components/InteractiveDotField';
 
 const signupSchema = z.object({
   firstName: z.string().min(3, 'Name must be at least 3 characters'),
@@ -49,7 +48,6 @@ function Signup() {
 
   return (
     <div className="min-h-screen page-shell flex items-center justify-center p-4">
-      <InteractiveDotField className="interactive-dot-soft-mask opacity-70" density="light" centerX={0.5} centerY={0.42} />
       <div className="w-full max-w-md animate-scale-in page-content">
         <div className="text-center mb-8">
           <NavLink to="/landing" className="inline-flex items-center gap-3">

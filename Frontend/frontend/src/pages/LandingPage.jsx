@@ -1,6 +1,5 @@
 import { NavLink } from 'react-router';
 import { Code, BookOpen, Trophy, Users, ChevronRight, Terminal, Zap, GraduationCap, ArrowRight, Sparkles, CheckCircle2 } from 'lucide-react';
-import InteractiveDotField from '../components/InteractiveDotField';
 
 function LandingPage() {
   const features = [
@@ -44,7 +43,6 @@ function LandingPage() {
       </nav>
 
       <section className="hero-stage pt-32 pb-20 px-6 page-content min-h-[92vh] flex items-center">
-        <InteractiveDotField className="interactive-dot-soft-mask opacity-95" density="dense" centerX={0.5} centerY={0.38} />
         <div className="max-w-7xl mx-auto text-center w-full">
           <div className="animate-fade-in-up">
             <div className="eyebrow-pill mb-8">
