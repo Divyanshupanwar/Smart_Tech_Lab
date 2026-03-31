@@ -241,7 +241,7 @@ const ProblemPage = () => {
                 {activeLeftTab === 'editorial' && (
                   <div className="animate-fade-in">
                     <h2 className="text-lg font-bold text-slate-900 mb-4">Editorial</h2>
-                    <Editorial secureUrl={problem.secureUrl} thumbnailUrl={problem.thumbnailUrl} duration={problem.duration} />
+                    <Editorial secureUrl={problem.secureUrl} thumbnailUrl={problem.thumbnailUrl} duration={problem.duration} youtubeUrl={problem.youtubeUrl} />
                   </div>
                 )}
 

@@ -1,7 +1,18 @@
 import { useState, useRef, useEffect } from 'react';
 import { Pause, Play } from 'lucide-react';
 
-const Editorial = ({ secureUrl, thumbnailUrl, duration }) => {
+const getYoutubeEmbedUrl = (url) => {
+  if (!url) return '';
+  const shortMatch = url.match(/youtu\.be\/([^?&/]+)/);
+  if (shortMatch) return `https://www.youtube.com/embed/${shortMatch[1]}`;
+  const longMatch = url.match(/[?&]v=([^?&/]+)/);
+  if (longMatch) return `https://www.youtube.com/embed/${longMatch[1]}`;
+  const embedMatch = url.match(/youtube\.com\/embed\/([^?&/]+)/);
+  if (embedMatch) return `https://www.youtube.com/embed/${embedMatch[1]}`;
+  return url;
+};
+
+const Editorial = ({ secureUrl, thumbnailUrl, duration, youtubeUrl }) => {
   const videoRef = useRef(null);
   const [isPlaying, setIsPlaying] = useState(false);
   const [currentTime, setCurrentTime] = useState(0);
@@ -36,10 +47,28 @@ const Editorial = ({ secureUrl, thumbnailUrl, duration }) => {
     }
   }, []);
 
-  if (!secureUrl) {
+  if (!secureUrl && !youtubeUrl) {
     return (
       <div className="text-center py-12">
         <p className="text-slate-400 text-sm">No editorial video available for this problem yet.</p>
+      </div>
+    );
+  }
+
+  if (youtubeUrl) {
+    return (
+      <div className="w-full max-w-2xl mx-auto">
+        <div className="relative overflow-hidden rounded-xl border border-slate-200 bg-slate-950">
+          <div className="aspect-video">
+            <iframe
+              src={getYoutubeEmbedUrl(youtubeUrl)}
+              title="YouTube editorial"
+              className="w-full h-full"
+              allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+              allowFullScreen
+            />
+          </div>
+        </div>
       </div>
     );
   }

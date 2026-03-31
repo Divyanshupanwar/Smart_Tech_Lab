@@ -14,19 +14,28 @@ const videoSchema = new Schema({
    },
    cloudinaryPublicId: {
     type: String,
-    required: true,
-    unique: true
+    unique: true,
+    sparse: true
   },
   secureUrl: {
     type: String,
-    required: true
+    default: ''
   },
   thumbnailUrl: {
     type: String
   },
+  youtubeUrl: {
+    type: String,
+    default: ''
+  },
+  provider: {
+    type: String,
+    enum: ['cloudinary', 'youtube'],
+    default: 'cloudinary'
+  },
   duration: {
     type: Number,
-    required: true
+    default: 0
   },
 },{
     timestamps:true

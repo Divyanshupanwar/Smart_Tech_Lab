@@ -216,7 +216,7 @@ const getProblemById = async (req, res) => {
 
         const editorial = await SolutionVideo.findOne({ problemId: id })
             .sort({ createdAt: -1 })
-            .select("secureUrl thumbnailUrl duration");
+            .select("secureUrl thumbnailUrl duration youtubeUrl provider");
 
         return res.status(200).json({
             success: true,
@@ -224,7 +224,9 @@ const getProblemById = async (req, res) => {
                 ...hydrateProblem(getProblem),
                 secureUrl: editorial?.secureUrl || null,
                 thumbnailUrl: editorial?.thumbnailUrl || null,
-                duration: editorial?.duration || 0
+                duration: editorial?.duration || 0,
+                youtubeUrl: editorial?.youtubeUrl || null,
+                videoProvider: editorial?.provider || null
             }
         });
     } catch (err) {

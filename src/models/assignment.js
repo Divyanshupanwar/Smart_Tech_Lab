@@ -24,6 +24,10 @@ const assignmentSchema = new Schema({
         required: true,
         default: 100,
     },
+    pdfUrl: {
+        type: String,
+        default: '',
+    },
     createdBy: {
         type: Schema.Types.ObjectId,
         ref: 'user',

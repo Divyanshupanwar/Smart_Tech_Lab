@@ -3,7 +3,7 @@ import { NavLink } from 'react-router';
 import { useDispatch, useSelector } from 'react-redux';
 import axiosClient from '../utils/axiosClient';
 import { logoutUser } from '../authSlice';
-import { Code, ArrowLeft, ClipboardList, Calendar, FileText, LogOut, Clock, CheckCircle2 } from 'lucide-react';
+import { Code, ArrowLeft, ClipboardList, Calendar, FileText, LogOut, Clock, CheckCircle2, ExternalLink } from 'lucide-react';
 
 function Assignments() {
   const dispatch = useDispatch();
@@ -126,7 +126,19 @@ function Assignments() {
                     <Calendar className="w-3.5 h-3.5" />
                     Due: {formatDate(assignment.dueDate)}
                   </div>
-                  <span>Total Marks: {assignment.totalMarks}</span>
+                  <div className="flex items-center gap-4">
+                    <span>Total Marks: {assignment.totalMarks}</span>
+                    {assignment.pdfUrl ? (
+                      <a
+                        href={assignment.pdfUrl}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="inline-flex items-center gap-1 text-indigo-600 hover:text-indigo-700 font-semibold"
+                      >
+                        PDF <ExternalLink className="w-3.5 h-3.5" />
+                      </a>
+                    ) : null}
+                  </div>
                 </div>
               </div>
             ))}

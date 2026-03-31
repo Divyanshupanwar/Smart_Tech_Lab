@@ -115,7 +115,10 @@ const saveVideoMetadata = async (req, res) => {
       videoSolution: {
         id: videoSolution._id,
         thumbnailUrl: videoSolution.thumbnailUrl,
+        secureUrl: videoSolution.secureUrl,
         duration: videoSolution.duration,
+        youtubeUrl: videoSolution.youtubeUrl,
+        provider: videoSolution.provider,
         uploadedAt: videoSolution.createdAt
       }
     });
@@ -123,6 +126,52 @@ const saveVideoMetadata = async (req, res) => {
   } catch (error) {
     console.error('Error saving video metadata:', error);
     res.status(500).json({ error: 'Failed to save video metadata' });
+  }
+};
+
+const saveYoutubeVideo = async (req, res) => {
+  try {
+    const { problemId, youtubeUrl, thumbnailUrl, duration } = req.body;
+    const userId = req.result._id;
+
+    if (!problemId || !youtubeUrl) {
+      return res.status(400).json({ error: 'problemId and youtubeUrl are required' });
+    }
+
+    const problem = await Problem.findById(problemId);
+    if (!problem) {
+      return res.status(404).json({ error: 'Problem not found' });
+    }
+
+    const existingVideo = await SolutionVideo.findOneAndDelete({ problemId, provider: 'youtube' });
+    if (existingVideo?.cloudinaryPublicId) {
+      await cloudinary.uploader.destroy(existingVideo.cloudinaryPublicId, { resource_type: 'video', invalidate: true }).catch(() => {});
+    }
+
+    const videoSolution = await SolutionVideo.create({
+      problemId,
+      userId,
+      youtubeUrl,
+      thumbnailUrl: thumbnailUrl || '',
+      duration: duration || 0,
+      provider: 'youtube',
+      cloudinaryPublicId: `youtube:${problemId}`,
+      secureUrl: ''
+    });
+
+    res.status(201).json({
+      message: 'YouTube editorial saved successfully',
+      videoSolution: {
+        id: videoSolution._id,
+        youtubeUrl: videoSolution.youtubeUrl,
+        thumbnailUrl: videoSolution.thumbnailUrl,
+        duration: videoSolution.duration,
+        provider: videoSolution.provider
+      }
+    });
+  } catch (error) {
+    console.error('Error saving YouTube video metadata:', error);
+    res.status(500).json({ error: 'Failed to save YouTube editorial' });
   }
 };
 
@@ -150,4 +199,4 @@ const deleteVideo = async (req, res) => {
   }
 };
 
-module.exports = {generateUploadSignature,saveVideoMetadata,deleteVideo};
+module.exports = {generateUploadSignature,saveVideoMetadata,saveYoutubeVideo,deleteVideo};

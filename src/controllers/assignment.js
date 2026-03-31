@@ -3,13 +3,14 @@ const { Assignment, AssignmentSubmission } = require('../models/assignment');
 // Admin: Create assignment
 const createAssignment = async (req, res) => {
     try {
-        const { title, description, subject, dueDate, totalMarks, problems } = req.body;
+        const { title, description, subject, dueDate, totalMarks, problems, pdfUrl } = req.body;
         const assignment = await Assignment.create({
             title,
             description,
             subject,
             dueDate,
             totalMarks: totalMarks || 100,
+            pdfUrl: pdfUrl || '',
             problems: problems || [],
             createdBy: req.result._id,
         });

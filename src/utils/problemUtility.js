@@ -40,6 +40,23 @@ const waiting = (time) => new Promise(resolve => setTimeout(resolve, time));
 
 // ------------------- GET RESULTS FROM TOKENS -------------------
 const submitToken = async (resultToken) => {
+    const requiredFields = [
+        'token',
+        'source_code',
+        'language_id',
+        'stdin',
+        'expected_output',
+        'stdout',
+        'status_id',
+        'time',
+        'memory',
+        'stderr',
+        'compile_output',
+        'message',
+        'created_at',
+        'finished_at',
+        'status'
+    ].join(',');
 
     const options = {
         method: 'GET',
@@ -47,7 +64,7 @@ const submitToken = async (resultToken) => {
         params: {
             tokens: resultToken.join(","),
             base64_encoded: 'false',
-            fields: '*'
+            fields: requiredFields
         },
         headers: {
             'x-rapidapi-key': 'd7b77fb7c3msh4e36cb7582d9741p1a3dadjsnb67bae3572ae',

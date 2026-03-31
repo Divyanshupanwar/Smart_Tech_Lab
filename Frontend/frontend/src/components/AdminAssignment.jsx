@@ -13,6 +13,7 @@ function AdminAssignment() {
     subject: 'DSA',
     dueDate: '',
     totalMarks: 100,
+    pdfUrl: '',
   });
 
   const handleChange = (e) => {
@@ -37,7 +38,7 @@ function AdminAssignment() {
       });
 
       setMessage({ type: 'success', text: data.message || 'Assignment created successfully!' });
-      setForm({ title: '', description: '', subject: 'DSA', dueDate: '', totalMarks: 100 });
+      setForm({ title: '', description: '', subject: 'DSA', dueDate: '', totalMarks: 100, pdfUrl: '' });
     } catch (error) {
       setMessage({ type: 'error', text: error.response?.data || 'Failed to create assignment' });
     } finally {
@@ -111,6 +112,15 @@ function AdminAssignment() {
                 <label className="block text-sm font-medium text-slate-700 mb-2">Total Marks</label>
                 <input type="number" name="totalMarks" value={form.totalMarks} onChange={handleChange} min="1" max="1000" className="w-full px-4 py-3 rounded-xl border border-slate-200 bg-slate-50 text-sm focus:outline-none focus:border-indigo-400" />
               </div>
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-slate-700 mb-2">PDF URL</label>
+              <input
+                type="url" name="pdfUrl" value={form.pdfUrl} onChange={handleChange}
+                placeholder="/assignments/daa-greedy-assignment.pdf or https://..."
+                className="w-full px-4 py-3 rounded-xl border border-slate-200 bg-slate-50 text-sm focus:outline-none focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100"
+              />
             </div>
 
             {message && (
