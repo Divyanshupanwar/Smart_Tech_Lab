@@ -1,33 +1,35 @@
 const jwt = require("jsonwebtoken");
-const User  = require("../models/user");
+const User = require("../models/user");
 const redisClient = require("../config/redis");
-const userMiddleWare = async(req,res,next)=>{
-    try{
-        const {token} = req.cookies;
-        if(!token)
-            throw new Error("Token is not Present!");
-        const payload = jwt.verify(token,process.env.JWT_KEY);
-        const{_id} = payload;
-        if(!_id){
-             throw new Error("Invalid Token!");
 
+const userMiddleWare = async (req, res, next) => {
+    try {
+        const { token } = req.cookies;
+        if (!token)
+            return res.status(401).json({ message: "Authentication required. Please login." });
+
+        const payload = jwt.verify(token, process.env.JWT_KEY);
+        const { _id } = payload;
+        if (!_id) {
+            return res.status(401).json({ message: "Invalid token!" });
         }
+
         const result = await User.findById(_id);
-        if(!result)
-            throw new Error("User doesnot Exist!");
-        //check token is not present in redis blocklist 
-  const IsBlocked = await redisClient.exists(`token:${token}`);
+        if (!result)
+            return res.status(401).json({ message: "User does not exist!" });
 
+        // Check token is not present in redis blocklist
+        if (redisClient.isOpen) {
+            const IsBlocked = await redisClient.exists(`token:${token}`);
+            if (IsBlocked)
+                return res.status(401).json({ message: "Session expired. Please login again." });
+        }
 
-if (IsBlocked) 
-    throw new Error("Invalid Token");
+        req.result = result;
+        next();
+    } catch (err) {
+        res.status(401).json({ message: "Authentication failed: " + err.message });
+    }
+};
 
-req.result = result;
-
-next();
-}
-catch (err) {
-    res.send("Error: " + err.message);
-}
-}
-module.exports  = userMiddleWare;
+module.exports = userMiddleWare;

@@ -1,13 +1,19 @@
 const { createClient } = require('redis');
+
 const redisClient = createClient({
-    username: 'default',
-    password: process.env.REDIS_PAS,
+    username: process.env.REDIS_USER || 'default',
+    password: process.env.REDIS_PASS,
     socket: {
-        host: 'redis-11474.c16.us-east-1-3.ec2.redns.redis-cloud.com',
-        port: 11474
+        host: process.env.REDIS_HOST,
+        port: Number(process.env.REDIS_PORT),
+        tls: process.env.REDIS_TLS === 'true',
+        reconnectStrategy: false,
+        connectTimeout: 5000
     }
 });
+
+redisClient.on('error', (err) => {
+    console.error('Redis connection error:', err.message);
+});
+
 module.exports = redisClient;
-
-
-

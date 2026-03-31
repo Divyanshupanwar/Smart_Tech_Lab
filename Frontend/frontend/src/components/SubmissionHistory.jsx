@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import axiosClient from '../utils/axiosClient';
+import { Clock, CheckCircle2, XCircle, AlertTriangle, Eye, X } from 'lucide-react';
 
 const SubmissionHistory = ({ problemId }) => {
   const [submissions, setSubmissions] = useState([]);
@@ -7,173 +8,150 @@ const SubmissionHistory = ({ problemId }) => {
   const [error, setError] = useState(null);
   const [selectedSubmission, setSelectedSubmission] = useState(null);
 
+  const extractSubmissions = (payload) => {
+    if (Array.isArray(payload)) {
+      return payload;
+    }
+
+    if (Array.isArray(payload?.submissions)) {
+      return payload.submissions;
+    }
+
+    return [];
+  };
+
   useEffect(() => {
     const fetchSubmissions = async () => {
       try {
         setLoading(true);
         const response = await axiosClient.get(`/problem/submittedProblem/${problemId}`);
-        setSubmissions(response.data);
+        setSubmissions(extractSubmissions(response.data));
         setError(null);
       } catch (err) {
-        setError('Failed to fetch submission history');
+        setError(err.response?.data?.message || 'Failed to fetch submission history');
         console.error(err);
       } finally {
         setLoading(false);
       }
     };
-
     fetchSubmissions();
   }, [problemId]);
 
-  const getStatusColor = (status) => {
+  const getStatusIcon = (status) => {
     switch (status) {
-      case 'accepted': return 'badge-success';
-      case 'wrong': return 'badge-error';
-      case 'error': return 'badge-warning';
-      case 'pending': return 'badge-info';
-      default: return 'badge-neutral';
+      case 'accepted': return <CheckCircle2 className="w-4 h-4 text-emerald-500" />;
+      case 'wrong': return <XCircle className="w-4 h-4 text-red-500" />;
+      case 'error': return <AlertTriangle className="w-4 h-4 text-amber-500" />;
+      case 'pending': return <Clock className="w-4 h-4 text-blue-500" />;
+      default: return <Clock className="w-4 h-4 text-slate-400" />;
+    }
+  };
+
+  const getStatusBadge = (status) => {
+    switch (status) {
+      case 'accepted': return 'bg-emerald-50 text-emerald-600';
+      case 'wrong': return 'bg-red-50 text-red-600';
+      case 'error': return 'bg-amber-50 text-amber-600';
+      case 'pending': return 'bg-blue-50 text-blue-600';
+      default: return 'bg-slate-50 text-slate-600';
     }
   };
 
   const formatMemory = (memory) => {
+    if (!memory) return 'N/A';
     if (memory < 1024) return `${memory} kB`;
     return `${(memory / 1024).toFixed(2)} MB`;
   };
 
   const formatDate = (dateString) => {
-    return new Date(dateString).toLocaleString();
+    return new Date(dateString).toLocaleString('en-US', {
+      month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit'
+    });
   };
 
   if (loading) {
     return (
-      <div className="flex justify-center items-center h-64">
-        <span className="loading loading-spinner loading-lg"></span>
+      <div className="flex justify-center py-12">
+        <div className="w-8 h-8 border-2 border-indigo-200 border-t-indigo-600 rounded-full animate-spin"></div>
       </div>
     );
   }
 
   if (error) {
     return (
-      <div className="alert alert-error shadow-lg my-4">
-        <div>
-          <svg xmlns="http://www.w3.org/2000/svg" className="stroke-current flex-shrink-0 h-6 w-6" fill="none" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z" />
-          </svg>
-          <span>{error}</span>
-        </div>
+      <div className="p-4 rounded-xl bg-red-50 border border-red-100 text-red-600 text-sm">
+        {error}
       </div>
     );
   }
 
   return (
-    <div className="container mx-auto p-4">
-      <h2 className="text-2xl font-bold mb-6 text-center">Submission History</h2>
+    <div>
+      <h2 className="text-lg font-bold text-slate-900 mb-4">Submission History</h2>
       
       {submissions.length === 0 ? (
-        <div className="alert alert-info shadow-lg">
-          <div>
-            <svg xmlns="http://www.w3.org/2000/svg" className="stroke-current flex-shrink-0 h-6 w-6" fill="none" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
-            </svg>
-            <span>No submissions found for this problem</span>
-          </div>
+        <div className="text-center py-12">
+          <Clock className="w-10 h-10 text-slate-300 mx-auto mb-3" />
+          <p className="text-slate-400 text-sm">No submissions yet for this problem</p>
         </div>
       ) : (
-        <>
-          <div className="overflow-x-auto">
-            <table className="table table-zebra w-full">
-              <thead>
-                <tr>
-                  <th>#</th>
-                  <th>Language</th>
-                  <th>Status</th>
-                  <th>Runtime</th>
-                  <th>Memory</th>
-                  <th>Test Cases</th>
-                  <th>Submitted</th>
-                  <th>Actions</th>
-                </tr>
-              </thead>
-              <tbody>
-                {submissions.map((sub, index) => (
-                  <tr key={sub._id}>
-                    <td>{index + 1}</td>
-                    <td className="font-mono">{sub.language}</td>
-                    <td>
-                      <span className={`badge ${getStatusColor(sub.status)}`}>
-                        {sub.status.charAt(0).toUpperCase() + sub.status.slice(1)}
-                      </span>
-                    </td>
-                    
-                    <td className="font-mono">{sub.runtime}sec</td>
-                    <td className="font-mono">{formatMemory(sub.memory)}</td>
-                    <td className="font-mono">{sub.testCasesPassed}/{sub.testCasesTotal}</td>
-                    <td>{formatDate(sub.createdAt)}</td>
-                    <td>
-                      <button 
-                        className="btn btn-s btn-outline"
-                        onClick={() => setSelectedSubmission(sub)}
-                      >
-                        Code
-                      </button>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-
-          <p className="mt-4 text-sm text-gray-500">
-            Showing {submissions.length} submissions
-          </p>
-        </>
-      )}
-
-      {/* Code View Modal */}
-      {selectedSubmission && (
-        <div className="modal modal-open">
-          <div className="modal-box w-11/12 max-w-5xl">
-            <h3 className="font-bold text-lg mb-4">
-              Submission Details: {selectedSubmission.language}
-            </h3>
-            
-            <div className="mb-4">
-              <div className="flex flex-wrap gap-2 mb-2">
-                <span className={`badge ${getStatusColor(selectedSubmission.status)}`}>
-                  {selectedSubmission.status}
-                </span>
-                <span className="badge badge-outline">
-                  Runtime: {selectedSubmission.runtime}s
-                </span>
-                <span className="badge badge-outline">
-                  Memory: {formatMemory(selectedSubmission.memory)}
-                </span>
-                <span className="badge badge-outline">
-                  Passed: {selectedSubmission.testCasesPassed}/{selectedSubmission.testCasesTotal}
-                </span>
+        <div className="space-y-3">
+          {submissions.map((sub, index) => (
+            <div key={sub._id} className="flex items-center gap-4 p-4 bg-slate-50 rounded-xl border border-slate-100 hover:border-slate-200 transition-all">
+              <div className="flex-shrink-0">
+                {getStatusIcon(sub.status)}
               </div>
-              
-              {selectedSubmission.errorMessage && (
-                <div className="alert alert-error mt-2">
-                  <div>
-                    <span>{selectedSubmission.errorMessage}</span>
-                  </div>
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center gap-2 mb-1">
+                  <span className={`px-2 py-0.5 rounded-md text-xs font-semibold ${getStatusBadge(sub.status)}`}>
+                    {sub.status?.charAt(0).toUpperCase() + sub.status?.slice(1)}
+                  </span>
+                  <span className="text-xs text-slate-400 font-mono">{sub.language}</span>
                 </div>
-              )}
-            </div>
-            
-            <pre className="p-4 bg-gray-900 text-gray-100 rounded overflow-x-auto">
-              <code>{selectedSubmission.code}</code>
-            </pre>
-            
-            <div className="modal-action">
-              <button 
-                className="btn"
-                onClick={() => setSelectedSubmission(null)}
+                <div className="flex items-center gap-4 text-xs text-slate-400">
+                  <span>{sub.runtime}s</span>
+                  <span>{formatMemory(sub.memory)}</span>
+                  <span>{sub.testCasesPassed}/{sub.testCasesTotal} passed</span>
+                  <span>{formatDate(sub.createdAt)}</span>
+                </div>
+              </div>
+              <button
+                className="px-3 py-1.5 text-xs font-medium text-indigo-600 hover:bg-indigo-50 rounded-lg transition-all"
+                onClick={() => setSelectedSubmission(sub)}
               >
-                Close
+                <Eye className="w-4 h-4" />
               </button>
             </div>
+          ))}
+        </div>
+      )}
+
+      {/* Code Modal */}
+      {selectedSubmission && (
+        <div className="fixed inset-0 bg-black/30 backdrop-blur-sm flex items-center justify-center z-50 p-4" onClick={() => setSelectedSubmission(null)}>
+          <div className="bg-white rounded-2xl shadow-xl w-full max-w-3xl max-h-[80vh] overflow-hidden" onClick={e => e.stopPropagation()}>
+            <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100">
+              <div className="flex items-center gap-3">
+                <h3 className="font-bold text-slate-900">Submission Code</h3>
+                <span className={`px-2 py-0.5 rounded-md text-xs font-semibold ${getStatusBadge(selectedSubmission.status)}`}>
+                  {selectedSubmission.status}
+                </span>
+                <span className="text-xs text-slate-400 font-mono">{selectedSubmission.language}</span>
+              </div>
+              <button onClick={() => setSelectedSubmission(null)} className="p-1.5 hover:bg-slate-100 rounded-lg transition-all">
+                <X className="w-4 h-4 text-slate-400" />
+              </button>
+            </div>
+            <div className="overflow-auto max-h-[60vh]">
+              <pre className="p-6 bg-slate-900 text-slate-100 text-sm font-mono leading-relaxed">
+                <code>{selectedSubmission.code}</code>
+              </pre>
+            </div>
+            {selectedSubmission.errorMessage && (
+              <div className="px-6 py-3 bg-red-50 border-t border-red-100 text-red-600 text-sm">
+                {selectedSubmission.errorMessage}
+              </div>
+            )}
           </div>
         </div>
       )}

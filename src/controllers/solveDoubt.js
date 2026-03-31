@@ -1,28 +1,22 @@
 const { GoogleGenAI } = require("@google/genai");
 
-
-const solveDoubt = async(req , res)=>{
-
-
-    try{
-
-        const {messages,title,description,testCases,startCode} = req.body;
+const solveDoubt = async (req, res) => {
+    try {
+        const { messages, title, description, testCases, startCode } = req.body;
         const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_KEY });
-       
-        async function main() {
+
         const response = await ai.models.generateContent({
-        model: "gemini-1.5-flash",
-        contents: messages,
-        config: {
-        systemInstruction: `
-You are an expert Data Structures and Algorithms (DSA) tutor specializing in helping users solve coding problems. Your role is strictly limited to DSA-related assistance only.
+            model: "gemini-2.0-flash",
+            contents: messages,
+            config: {
+                systemInstruction: `
+You are an expert coding tutor specializing in helping users solve coding problems across multiple subjects including DSA, DAA, OOPs, and C Programming. Your role is strictly limited to coding-related assistance only.
 
 ## CURRENT PROBLEM CONTEXT:
 [PROBLEM_TITLE]: ${title}
 [PROBLEM_DESCRIPTION]: ${description}
-[EXAMPLES]: ${testCases}
-[startCode]: ${startCode}
-
+[EXAMPLES]: ${JSON.stringify(testCases)}
+[startCode]: ${JSON.stringify(startCode)}
 
 ## YOUR CAPABILITIES:
 1. **Hint Provider**: Give step-by-step hints without revealing the complete solution
@@ -65,13 +59,13 @@ You are an expert Data Structures and Algorithms (DSA) tutor specializing in hel
 - Use examples to illustrate concepts
 - Break complex explanations into digestible parts
 - Always relate back to the current problem context
-- Always response in the Language in which user is comfortable or given the context
+- Always respond in the language in which user is comfortable or given the context
 
 ## STRICT LIMITATIONS:
-- ONLY discuss topics related to the current DSA problem
-- DO NOT help with non-DSA topics (web development, databases, etc.)
+- ONLY discuss topics related to the current coding problem
+- DO NOT help with non-coding topics
 - DO NOT provide solutions to different problems
-- If asked about unrelated topics, politely redirect: "I can only help with the current DSA problem. What specific aspect of this problem would you like assistance with?"
+- If asked about unrelated topics, politely redirect: "I can only help with the current problem. What specific aspect would you like assistance with?"
 
 ## TEACHING PHILOSOPHY:
 - Encourage understanding over memorization
@@ -80,24 +74,20 @@ You are an expert Data Structures and Algorithms (DSA) tutor specializing in hel
 - Help build problem-solving intuition
 - Promote best coding practices
 
-Remember: Your goal is to help users learn and understand DSA concepts through the lens of the current problem, not just to provide quick answers.
-`},
-    });
-     
-    res.status(201).json({
-        message:response.text
-    });
-    console.log(response.text);
-    }
+Remember: Your goal is to help users learn and understand coding concepts through the lens of the current problem, not just to provide quick answers.
+`
+            },
+        });
 
-    main();
-      
-    }
-    catch(err){
+        res.status(201).json({
+            message: response.text
+        });
+    } catch (err) {
+        console.error("AI Chat Error:", err);
         res.status(500).json({
-            message: "Internal server error"
+            message: "Failed to get AI response. Please try again."
         });
     }
-}
+};
 
 module.exports = solveDoubt;

@@ -12,13 +12,18 @@ const problemSchema = new Schema({
     },
     difficulty:{
         type:String,
-        enum:['easy','medium','Hard'],
+        enum:['easy','medium','hard'],
         required:true,
 
     },
+    subject:{
+        type:String,
+        enum:['DSA','DAA','OOPs','CProgramming'],
+        required:true,
+    },
     tags:{
         type:String,
-        enum:['array','LinkedList','Graph','DP','Stack','Queue'],
+        enum:['array','LinkedList','Graph','DP','Stack','Queue','Tree','Sorting','Searching','Greedy','Backtracking','Recursion','String','Math','BitManipulation','Classes','Inheritance','Polymorphism','Encapsulation','Abstraction','Pointers','Structures','FileHandling','Functions','Loops','DivideAndConquer','DynamicProgramming','BranchAndBound','NetworkFlow'],
         required:true,
 
     },
@@ -85,6 +90,7 @@ const problemSchema = new Schema({
 
     }
 })
+problemSchema.index({subject:1});
 const Problem  = mongoose.model('problem',problemSchema);
 module.exports =Problem;
 

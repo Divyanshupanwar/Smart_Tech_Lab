@@ -15,11 +15,23 @@ function Homepage() {
     status: 'all' 
   });
 
+  const extractProblems = (payload) => {
+    if (Array.isArray(payload)) {
+      return payload;
+    }
+
+    if (Array.isArray(payload?.problems)) {
+      return payload.problems;
+    }
+
+    return [];
+  };
+
   useEffect(() => {
     const fetchProblems = async () => {
       try {
         const { data } = await axiosClient.get('/problem/getAllProblem');
-        setProblems(data);
+        setProblems(extractProblems(data));
       } catch (error) {
         console.error('Error fetching problems:', error);
       }
@@ -28,7 +40,7 @@ function Homepage() {
     const fetchSolvedProblems = async () => {
       try {
         const { data } = await axiosClient.get('/problem/problemSolvedByUser');
-        setSolvedProblems(data);
+        setSolvedProblems(extractProblems(data));
       } catch (error) {
         console.error('Error fetching solved problems:', error);
       }

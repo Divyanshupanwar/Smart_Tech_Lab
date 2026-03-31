@@ -19,7 +19,7 @@ const submissionSchema = new Schema({
     language: {
         type: String,
         required: true,
-        enum: ['javascript', 'c++', 'java'] // Expanded language support
+        enum: ['javascript', 'c++', 'java', 'python']
     },
     status: {
         type: String,

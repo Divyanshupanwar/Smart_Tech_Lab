@@ -22,9 +22,9 @@ async function listModels() {
             try {
                 const model = genAI.getGenerativeModel({ model: modelName });
                 const result = await model.generateContent("Hello");
-                console.log(`✅ ${modelName} - WORKS`);
+                console.log(` ${modelName} - WORKS`);
             } catch (err) {
-                console.log(`❌ ${modelName} - Failed: ${err.message.substring(0, 100)}`);
+                console.log(` ${modelName} - Failed: ${err.message.substring(0, 100)}`);
             }
         }
     } catch (err) {

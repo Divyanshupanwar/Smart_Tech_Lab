@@ -14,16 +14,17 @@ const submitCode = async (req,res)=>{
        let {code,language} = req.body;
 
       if(!userId||!code||!problemId||!language)
-        return res.status(400).send("Some field missing");
+        return res.status(400).json({ message: "Some required fields are missing" });
       
 
       if(language==='cpp')
         language='c++'
       
-      console.log(language);
-      
     //    Fetch the problem from database
        const problem =  await Problem.findById(problemId);
+       if (!problem) {
+        return res.status(404).json({ message: "Problem not found" });
+       }
     //    testcases(Hidden)
     
     //   Kya apne submission store kar du pehle....
@@ -49,6 +50,9 @@ const submitCode = async (req,res)=>{
 
     
     const submitResult = await submitBatch(submissions);
+    if (!Array.isArray(submitResult) || submitResult.length === 0) {
+      throw new Error("Judge0 submission failed");
+    }
     
     const resultToken = submitResult.map((value)=> value.token);
 
@@ -69,13 +73,13 @@ const submitCode = async (req,res)=>{
            runtime = runtime+parseFloat(test.time)
            memory = Math.max(memory,test.memory);
         }else{
-          if(test.status_id==4){
+          if(test.status_id==4 || test.status_id==6 || test.status_id==13){
             status = 'error'
-            errorMessage = test.stderr
+            errorMessage = test.stderr || test.compile_output || test.message || test.status?.description || "Runtime error"
           }
           else{
             status = 'wrong'
-            errorMessage = test.stderr
+            errorMessage = test.stderr || test.compile_output || test.message || test.status?.description || "Wrong answer"
           }
         }
     }
@@ -94,7 +98,7 @@ const submitCode = async (req,res)=>{
     
     // req.result == user Information
 
-    if(!req.result.problemSolved.includes(problemId)){
+    if(status === 'accepted' && !req.result.problemSolved.some((id) => id.toString() === problemId.toString())){
       req.result.problemSolved.push(problemId);
       await req.result.save();
     }
@@ -105,12 +109,15 @@ const submitCode = async (req,res)=>{
       totalTestCases: submittedResult.testCasesTotal,
       passedTestCases: testCasesPassed,
       runtime,
-      memory
+      memory,
+      status,
+      errorMessage
     });
        
     }
     catch(err){
-      res.status(500).send("Internal Server Error "+ err);
+      console.error("Error submitting code:", err);
+      res.status(500).json({ message: "Internal Server Error", error: err.message });
     }
 }
 
@@ -125,10 +132,13 @@ const runCode = async(req,res)=>{
       let {code,language} = req.body;
 
      if(!userId||!code||!problemId||!language)
-       return res.status(400).send("Some field missing");
+       return res.status(400).json({ message: "Some required fields are missing" });
 
    //    Fetch the problem from database
       const problem =  await Problem.findById(problemId);
+      if (!problem) {
+        return res.status(404).json({ message: "Problem not found" });
+      }
    //    testcases(Hidden)
       if(language==='cpp')
         language='c++'
@@ -146,6 +156,9 @@ const runCode = async(req,res)=>{
 
 
    const submitResult = await submitBatch(submissions);
+   if (!Array.isArray(submitResult) || submitResult.length === 0) {
+    throw new Error("Judge0 submission failed");
+   }
    
    const resultToken = submitResult.map((value)=> value.token);
 
@@ -165,11 +178,11 @@ const runCode = async(req,res)=>{
         }else{
           if(test.status_id==4){
             status = false
-            errorMessage = test.stderr
+            errorMessage = test.stderr || test.compile_output || test.message || test.status?.description || "Runtime error"
           }
           else{
             status = false
-            errorMessage = test.stderr
+            errorMessage = test.stderr || test.compile_output || test.message || test.status?.description || "Wrong answer"
           }
         }
     }
@@ -180,12 +193,14 @@ const runCode = async(req,res)=>{
     success:status,
     testCases: testResult,
     runtime,
-    memory
+    memory,
+    errorMessage
    });
       
    }
    catch(err){
-     res.status(500).send("Internal Server Error "+ err);
+     console.error("Error running code:", err);
+     res.status(500).json({ message: "Internal Server Error", error: err.message });
    }
 }
 

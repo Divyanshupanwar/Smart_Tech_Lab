@@ -1,0 +1,5 @@
+[dotenv@17.2.3] injecting env (7) from .env -- tip: ⚙️  write to custom object with { processEnv: myObject }
+Database connected successfully!
+Redis connected
+DB Connected
+Server listening at port number: 3000

@@ -1,11 +1,24 @@
 import { useEffect, useState } from 'react';
-import axiosClient from '../utils/axiosClient'
+import axiosClient from '../utils/axiosClient';
+import { NavLink } from 'react-router';
+import { ArrowLeft, Code, Trash2, AlertTriangle } from 'lucide-react';
 
 const AdminDelete = () => {
   const [problems, setProblems] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
+  const extractProblems = (payload) => {
+    if (Array.isArray(payload)) {
+      return payload;
+    }
+
+    if (Array.isArray(payload?.problems)) {
+      return payload.problems;
+    }
+
+    return [];
+  };
 
   useEffect(() => {
     fetchProblems();
@@ -15,7 +28,7 @@ const AdminDelete = () => {
     try {
       setLoading(true);
       const { data } = await axiosClient.get('/problem/getAllProblem');
-      setProblems(data);
+      setProblems(extractProblems(data));
     } catch (err) {
       setError('Failed to fetch problems');
       console.error(err);
@@ -26,90 +39,76 @@ const AdminDelete = () => {
 
   const handleDelete = async (id) => {
     if (!window.confirm('Are you sure you want to delete this problem?')) return;
-    
     try {
       await axiosClient.delete(`/problem/delete/${id}`);
-      setProblems(problems.filter(problem => problem._id !== id));
+      setProblems(problems.filter(p => p._id !== id));
     } catch (err) {
       setError('Failed to delete problem');
       console.error(err);
     }
   };
 
+  const getDifficultyBadge = (d) => {
+    switch (d?.toLowerCase()) {
+      case 'easy': return 'bg-emerald-50 text-emerald-600';
+      case 'medium': return 'bg-amber-50 text-amber-600';
+      case 'hard': return 'bg-red-50 text-red-600';
+      default: return 'bg-slate-50 text-slate-600';
+    }
+  };
 
   if (loading) {
     return (
-      <div className="flex justify-center items-center h-64">
-        <span className="loading loading-spinner loading-lg"></span>
-      </div>
-    );
-  }
-
-  if (error) {
-    return (
-      <div className="alert alert-error shadow-lg my-4">
-        <div>
-          <svg xmlns="http://www.w3.org/2000/svg" className="stroke-current flex-shrink-0 h-6 w-6" fill="none" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z" />
-          </svg>
-          <span>{error}</span>
-        </div>
+      <div className="min-h-screen bg-slate-50 flex justify-center items-center">
+        <div className="w-10 h-10 border-3 border-indigo-200 border-t-indigo-600 rounded-full animate-spin"></div>
       </div>
     );
   }
 
   return (
-    <div className="container mx-auto p-4">
-      <div className="flex justify-between items-center mb-6">
-        <h1 className="text-3xl font-bold">Delete Problems</h1>
-      </div>
+    <div className="min-h-screen bg-slate-50">
+      <nav className="sticky top-0 z-50 navbar-glass">
+        <div className="max-w-7xl mx-auto px-6 py-4 flex items-center gap-3">
+          <NavLink to="/admin" className="p-2 text-slate-400 hover:text-slate-900 hover:bg-slate-100 rounded-xl transition-all">
+            <ArrowLeft className="w-5 h-5" />
+          </NavLink>
+          <div className="w-10 h-10 rounded-xl bg-indigo-600 flex items-center justify-center">
+            <Code className="w-5 h-5 text-white" />
+          </div>
+          <div>
+            <span className="text-lg font-bold text-slate-900">Delete Problems</span>
+            <p className="text-xs text-slate-400">Remove problems from the platform</p>
+          </div>
+        </div>
+      </nav>
 
-      <div className="overflow-x-auto">
-        <table className="table table-zebra w-full">
-          <thead>
-            <tr>
-              <th className="w-1/12">#</th>
-              <th className="w-4/12">Title</th>
-              <th className="w-2/12">Difficulty</th>
-              <th className="w-3/12">Tags</th>
-              <th className="w-2/12">Actions</th>
-            </tr>
-          </thead>
-          <tbody>
-            {problems.map((problem, index) => (
-              <tr key={problem._id}>
-                <th>{index + 1}</th>
-                <td>{problem.title}</td>
-                <td>
-                  <span className={`badge ${
-                    problem.difficulty === 'Easy' 
-                      ? 'badge-success' 
-                      : problem.difficulty === 'Medium' 
-                        ? 'badge-warning' 
-                        : 'badge-error'
-                  }`}>
+      <div className="max-w-5xl mx-auto px-6 py-10">
+        {error && (
+          <div className="mb-6 p-4 rounded-xl bg-red-50 border border-red-100 flex items-center gap-3 text-red-600 text-sm">
+            <AlertTriangle className="w-5 h-5" />
+            {error}
+          </div>
+        )}
+
+        <div className="space-y-3">
+          {problems.map((problem, index) => (
+            <div key={problem._id} className={`flex items-center gap-4 p-4 card-professional animate-fade-in-up stagger-${Math.min(index+1, 5)}`}>
+              <div className="flex-1 min-w-0">
+                <h3 className="text-sm font-semibold text-slate-900 truncate">{problem.title}</h3>
+                <div className="flex items-center gap-2 mt-1">
+                  <span className={`px-2 py-0.5 rounded-md text-xs font-semibold ${getDifficultyBadge(problem.difficulty)}`}>
                     {problem.difficulty}
                   </span>
-                </td>
-                <td>
-                  <span className="badge badge-outline">
-                    {problem.tags}
-                  </span>
-                </td>
-                <td>
-                  <div className="flex space-x-2">
-                    <button 
-                      onClick={() => handleDelete(problem._id)}
-                      className="btn btn-sm btn-error"
-                    >
-                      Delete
-                    </button>
-                  </div>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
+                  <span className="text-xs text-slate-400">{problem.subject}</span>
+                  <span className="text-xs text-slate-400">• {problem.tags}</span>
+                </div>
+              </div>
+              <button onClick={() => handleDelete(problem._id)} className="flex items-center gap-1.5 px-3 py-2 text-xs font-semibold text-red-600 hover:bg-red-50 rounded-lg transition-all">
+                <Trash2 className="w-3.5 h-3.5" /> Delete
+              </button>
+            </div>
+          ))}
+        </div>
       </div>
     </div>
   );

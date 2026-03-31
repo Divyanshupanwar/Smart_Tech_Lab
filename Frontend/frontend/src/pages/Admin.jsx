@@ -1,104 +1,87 @@
-import React, { useState } from 'react';
-import { Plus, Edit, Trash2, Home, RefreshCw, Zap,Video } from 'lucide-react';
+import { Plus, Trash2, Video, ClipboardList, ArrowLeft, Code } from 'lucide-react';
 import { NavLink } from 'react-router';
 
 function Admin() {
-  const [selectedOption, setSelectedOption] = useState(null);
-
   const adminOptions = [
     {
       id: 'create',
       title: 'Create Problem',
       description: 'Add a new coding problem to the platform',
       icon: Plus,
-      color: 'btn-success',
-      bgColor: 'bg-success/10',
+      iconBg: 'bg-emerald-50',
+      iconColor: 'text-emerald-600',
       route: '/admin/create'
-    },
-    {
-      id: 'update',
-      title: 'Update Problem',
-      description: 'Edit existing problems and their details',
-      icon: Edit,
-      color: 'btn-warning',
-      bgColor: 'bg-warning/10',
-      route: '/admin/update'
     },
     {
       id: 'delete',
       title: 'Delete Problem',
       description: 'Remove problems from the platform',
       icon: Trash2,
-      color: 'btn-error',
-      bgColor: 'bg-error/10',
+      iconBg: 'bg-red-50',
+      iconColor: 'text-red-600',
       route: '/admin/delete'
     },
     {
       id: 'video',
-      title: 'Video Problem',
-      description: 'Upload And Delete Videos',
+      title: 'Manage Videos',
+      description: 'Upload and manage editorial videos',
       icon: Video,
-      color: 'btn-success',
-      bgColor: 'bg-success/10',
+      iconBg: 'bg-blue-50',
+      iconColor: 'text-blue-600',
       route: '/admin/video'
+    },
+    {
+      id: 'assignment',
+      title: 'Create Assignment',
+      description: 'Create and manage assignments for students',
+      icon: ClipboardList,
+      iconBg: 'bg-violet-50',
+      iconColor: 'text-violet-600',
+      route: '/admin/assignment'
     }
   ];
 
   return (
-    <div className="min-h-screen bg-base-200">
-      <div className="container mx-auto px-4 py-8">
-        {/* Header */}
-        <div className="text-center mb-12">
-          <h1 className="text-4xl font-bold text-base-content mb-4">
-            Admin Panel
-          </h1>
-          <p className="text-base-content/70 text-lg">
-            Manage coding problems on your platform
-          </p>
+    <div className="min-h-screen bg-slate-50">
+      <nav className="sticky top-0 z-50 navbar-glass">
+        <div className="max-w-7xl mx-auto px-6 py-4 flex items-center gap-3">
+          <NavLink to="/" className="p-2 text-slate-400 hover:text-slate-900 hover:bg-slate-100 rounded-xl transition-all">
+            <ArrowLeft className="w-5 h-5" />
+          </NavLink>
+          <div className="w-10 h-10 rounded-xl bg-indigo-600 flex items-center justify-center">
+            <Code className="w-5 h-5 text-white" />
+          </div>
+          <div>
+            <span className="text-lg font-bold text-slate-900">Admin Panel</span>
+            <p className="text-xs text-slate-400">Manage your platform</p>
+          </div>
+        </div>
+      </nav>
+
+      <div className="max-w-5xl mx-auto px-6 py-12">
+        <div className="text-center mb-12 animate-fade-in-up">
+          <h1 className="text-3xl font-bold text-slate-900 mb-2">Admin Dashboard</h1>
+          <p className="text-slate-500">Manage coding problems and course content</p>
         </div>
 
-        {/* Admin Options Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8 max-w-6xl mx-auto">
-          {adminOptions.map((option) => {
-            const IconComponent = option.icon;
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 max-w-4xl mx-auto">
+          {adminOptions.map((option, index) => {
+            const Icon = option.icon;
             return (
-              <div
+              <NavLink
                 key={option.id}
-                className="card bg-base-100 shadow-xl hover:shadow-2xl transition-all duration-300 transform hover:-translate-y-2 cursor-pointer"
+                to={option.route}
+                className={`group card-professional p-8 animate-fade-in-up stagger-${index+1}`}
               >
-                <div className="card-body items-center text-center p-8">
-                  {/* Icon */}
-                  <div className={`${option.bgColor} p-4 rounded-full mb-4`}>
-                    <IconComponent size={32} className="text-base-content" />
-                  </div>
-                  
-                  {/* Title */}
-                  <h2 className="card-title text-xl mb-2">
-                    {option.title}
-                  </h2>
-                  
-                  {/* Description */}
-                  <p className="text-base-content/70 mb-6">
-                    {option.description}
-                  </p>
-                  
-                  {/* Action Button */}
-                  <div className="card-actions">
-                    <div className="card-actions">
-                    <NavLink 
-                    to={option.route}
-                   className={`btn ${option.color} btn-wide`}
-                   >
-                   {option.title}
-                   </NavLink>
-                   </div>
-                  </div>
+                <div className={`w-14 h-14 rounded-2xl ${option.iconBg} flex items-center justify-center mb-6 group-hover:scale-110 transition-transform`}>
+                  <Icon className={`w-7 h-7 ${option.iconColor}`} />
                 </div>
-              </div>
+                <h2 className="text-xl font-bold text-slate-900 mb-2">{option.title}</h2>
+                <p className="text-sm text-slate-500">{option.description}</p>
+              </NavLink>
             );
           })}
         </div>
-
       </div>
     </div>
   );

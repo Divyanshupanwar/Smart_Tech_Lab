@@ -9,12 +9,23 @@ const problemRouter = require("./routes/problemCreator");
 const submitRouter = require("./routes/submit")
 const aiRouter = require("./routes/aiChatting")
 const videoRouter = require("./routes/videoCreator");
+const assignmentRouter = require("./routes/assignment");
 const cors = require('cors')
 
-// console.log("Hello")
+const allowedOrigins = [
+    process.env.FRONTEND_ORIGIN,
+    "http://localhost:5173",
+    "http://127.0.0.1:5173"
+].filter(Boolean);
 
 app.use(cors({
-    origin: 'http://localhost:5173',
+    origin: (origin, callback) => {
+        if (!origin || allowedOrigins.includes(origin)) {
+            return callback(null, true);
+        }
+
+        return callback(new Error("Not allowed by CORS"));
+    },
     credentials: true 
 }))
 
@@ -26,12 +37,19 @@ app.use('/problem',problemRouter);
 app.use('/submission',submitRouter);
 app.use('/ai',aiRouter);
 app.use("/video",videoRouter);
+app.use('/assignment',assignmentRouter);
 
 
 const InitalizeConnection = async ()=>{
     try{
-
-        await Promise.all([main(),redisClient.connect()]);
+        await main();
+        try {
+            await redisClient.connect();
+            console.log("Redis connected");
+        }
+        catch (redisError) {
+            console.error("Redis unavailable, continuing without cache:", redisError.message);
+        }
         console.log("DB Connected");
         
         app.listen(process.env.PORT, ()=>{
