@@ -5,6 +5,13 @@ const bcrypt = require("bcrypt");
 var jwt = require("jsonwebtoken");
 const Submission = require("../models/submission");
 
+const cookieOptions = {
+    httpOnly: true,
+    sameSite: 'lax',
+    secure: process.env.NODE_ENV === 'production' || !!process.env.VERCEL,
+    maxAge: 60 * 60 * 1000
+};
+
 const register = async (req, res) => {
     try {
         validate(req.body);
@@ -20,7 +27,7 @@ const register = async (req, res) => {
         req.body.role = 'user';
         const user = await User.create(req.body);
         const token = jwt.sign({ _id: user._id, emailID: emailID, role: user.role }, process.env.JWT_KEY, { expiresIn: 60 * 60 });
-        res.cookie('token', token, { maxAge: 60 * 60 * 1000 });
+        res.cookie('token', token, cookieOptions);
         const reply = {
             firstName: user.firstName,
             emailID: user.emailID,
@@ -61,7 +68,7 @@ const login = async (req, res) => {
             role: user.role
         };
         const token = jwt.sign({ _id: user._id, emailID: emailID, role: user.role }, process.env.JWT_KEY, { expiresIn: 60 * 60 });
-        res.cookie('token', token, { maxAge: 60 * 60 * 1000 });
+        res.cookie('token', token, cookieOptions);
         res.status(200).json({
             user: reply,
             message: "Login Successfully!"
@@ -85,7 +92,11 @@ const logout = async (req, res) => {
         }
 
         // Clear the cookie
-        res.clearCookie('token');
+        res.clearCookie('token', {
+            httpOnly: true,
+            sameSite: 'lax',
+            secure: process.env.NODE_ENV === 'production' || !!process.env.VERCEL
+        });
 
         res.status(200).json({ message: "Logged out successfully!" });
     } catch (err) {
@@ -106,7 +117,7 @@ const adminRegister = async (req, res) => {
         req.body.password = await bcrypt.hash(password, 10);
         const user = await User.create(req.body);
         const token = jwt.sign({ _id: user._id, emailID: emailID, role: user.role }, process.env.JWT_KEY, { expiresIn: 60 * 60 });
-        res.cookie('token', token, { maxAge: 60 * 60 * 1000 });
+        res.cookie('token', token, cookieOptions);
         res.status(201).json({ message: "Admin Registered Successfully!" });
     } catch (err) {
         if (err.code === 11000) {
