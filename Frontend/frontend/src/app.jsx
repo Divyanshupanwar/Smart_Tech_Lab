@@ -28,10 +28,10 @@ function App(){
   }, [dispatch]);
   
   if (loading) {
-    return <div className="min-h-screen flex items-center justify-center bg-slate-50">
+    return <div className="min-h-screen page-shell flex items-center justify-center">
       <div className="flex flex-col items-center gap-4 animate-fade-in">
-        <div className="w-12 h-12 border-3 border-indigo-200 border-t-indigo-600 rounded-full animate-spin"></div>
-        <p className="text-sm text-slate-500 font-medium">Loading Smart Tech Lab...</p>
+        <div className="w-12 h-12 border-[3px] border-stone-300 border-t-[#2147ba] rounded-full animate-spin"></div>
+        <p className="text-sm text-stone-600 font-semibold">Loading Smart Tech Lab...</p>
       </div>
     </div>;
   }
