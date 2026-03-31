@@ -8,12 +8,12 @@ import { registerUser, clearError } from '../authSlice';
 import { Code, Eye, EyeOff, ArrowRight, AlertCircle } from 'lucide-react';
 
 const signupSchema = z.object({
-  firstName: z.string().min(3, "Name must be at least 3 characters"),
-  emailID: z.string().email("Please enter a valid email"),
-  password: z.string().min(8, "Password must be at least 8 characters")
-    .regex(/[A-Z]/, "Must contain at least one uppercase letter")
-    .regex(/[0-9]/, "Must contain at least one number")
-    .regex(/[^A-Za-z0-9]/, "Must contain at least one special character")
+  firstName: z.string().min(3, 'Name must be at least 3 characters'),
+  emailID: z.string().email('Please enter a valid email'),
+  password: z.string().min(8, 'Password must be at least 8 characters')
+    .regex(/[A-Z]/, 'Must contain at least one uppercase letter')
+    .regex(/[0-9]/, 'Must contain at least one number')
+    .regex(/[^A-Za-z0-9]/, 'Must contain at least one special character'),
 });
 
 function Signup() {
@@ -47,27 +47,28 @@ function Signup() {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center p-4 bg-slate-50">
-      <div className="w-full max-w-md animate-scale-in">
-        {/* Logo */}
+    <div className="min-h-screen page-shell flex items-center justify-center p-4">
+      <div className="w-full max-w-md animate-scale-in page-content">
         <div className="text-center mb-8">
           <NavLink to="/landing" className="inline-flex items-center gap-3">
-            <div className="w-12 h-12 rounded-xl bg-indigo-600 flex items-center justify-center shadow-lg shadow-indigo-200">
+            <div className="brand-mark w-12 h-12 rounded-2xl flex items-center justify-center">
               <Code className="w-6 h-6 text-white" />
             </div>
-            <span className="text-2xl font-bold text-slate-900">Smart Tech Lab</span>
+            <span className="font-display text-2xl font-bold text-stone-950">Smart Tech Lab</span>
           </NavLink>
         </div>
 
-        {/* Card */}
-        <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-8">
-          <h2 className="text-2xl font-bold text-slate-900 mb-1">Create your account</h2>
-          <p className="text-slate-500 text-sm mb-8">Start your coding journey today</p>
+        <div className="surface-panel p-8">
+          <div className="mb-8">
+            <p className="eyebrow-pill mb-4">Create account</p>
+            <h2 className="page-title text-3xl font-bold mb-1">Join the lab</h2>
+            <p className="page-subtitle text-sm">Clean typography, bright workspace, and subject-based practice from day one.</p>
+          </div>
 
           {error && (
-            <div className="mb-6 p-4 rounded-xl bg-red-50 border border-red-100 flex items-start gap-3">
+            <div className="mb-6 p-4 rounded-2xl bg-red-50/80 border border-red-200 flex items-start gap-3">
               <AlertCircle className="w-5 h-5 text-red-500 flex-shrink-0 mt-0.5" />
-              <p className="text-red-600 text-sm font-medium">
+              <p className="text-red-700 text-sm font-semibold">
                 {typeof error === 'string' ? error : 'Registration failed. Please try again.'}
               </p>
             </div>
@@ -75,11 +76,11 @@ function Signup() {
 
           <form onSubmit={handleSubmit(onSubmit)} className="space-y-5">
             <div>
-              <label className="block text-sm font-medium text-slate-700 mb-2">Full Name</label>
+              <label className="block text-sm font-semibold text-stone-700 mb-2">Full Name</label>
               <input
                 type="text"
                 placeholder="John Doe"
-                className={`w-full px-4 py-3 rounded-xl border ${errors.firstName ? 'border-red-300 bg-red-50' : 'border-slate-200 bg-slate-50'} text-slate-900 text-sm focus:outline-none focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100 transition-all`}
+                className={`input-luxe w-full px-4 py-3 text-sm ${errors.firstName ? 'border-red-300 bg-red-50' : ''}`}
                 {...register('firstName')}
               />
               {errors.firstName && (
@@ -88,11 +89,11 @@ function Signup() {
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-slate-700 mb-2">Email</label>
+              <label className="block text-sm font-semibold text-stone-700 mb-2">Email</label>
               <input
                 type="email"
                 placeholder="you@example.com"
-                className={`w-full px-4 py-3 rounded-xl border ${errors.emailID ? 'border-red-300 bg-red-50' : 'border-slate-200 bg-slate-50'} text-slate-900 text-sm focus:outline-none focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100 transition-all`}
+                className={`input-luxe w-full px-4 py-3 text-sm ${errors.emailID ? 'border-red-300 bg-red-50' : ''}`}
                 {...register('emailID')}
               />
               {errors.emailID && (
@@ -101,17 +102,17 @@ function Signup() {
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-slate-700 mb-2">Password</label>
+              <label className="block text-sm font-semibold text-stone-700 mb-2">Password</label>
               <div className="relative">
                 <input
-                  type={showPassword ? "text" : "password"}
-                  placeholder="••••••••"
-                  className={`w-full px-4 py-3 pr-12 rounded-xl border ${errors.password ? 'border-red-300 bg-red-50' : 'border-slate-200 bg-slate-50'} text-slate-900 text-sm focus:outline-none focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100 transition-all`}
+                  type={showPassword ? 'text' : 'password'}
+                  placeholder="********"
+                  className={`input-luxe w-full px-4 py-3 pr-12 text-sm ${errors.password ? 'border-red-300 bg-red-50' : ''}`}
                   {...register('password')}
                 />
                 <button
                   type="button"
-                  className="absolute top-1/2 right-4 -translate-y-1/2 text-slate-400 hover:text-slate-600 transition-colors"
+                  className="absolute top-1/2 right-4 -translate-y-1/2 text-stone-400 hover:text-stone-700 transition-colors"
                   onClick={() => setShowPassword(!showPassword)}
                 >
                   {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
@@ -120,12 +121,12 @@ function Signup() {
               {errors.password && (
                 <p className="text-red-500 text-xs mt-1.5">{errors.password.message}</p>
               )}
-              <p className="text-xs text-slate-400 mt-2">Must include uppercase, number, and special character</p>
+              <p className="text-xs text-stone-500 mt-2">Must include uppercase, number, and special character.</p>
             </div>
 
             <button
               type="submit"
-              className="w-full btn-professional flex items-center justify-center gap-2 py-3.5"
+              className="w-full btn-professional py-3.5"
               disabled={loading}
             >
               {loading ? (
@@ -136,10 +137,10 @@ function Signup() {
             </button>
           </form>
 
-          <div className="text-center mt-8 pt-6 border-t border-slate-100">
-            <span className="text-sm text-slate-500">
+          <div className="text-center mt-8 pt-6 border-t border-stone-200/80">
+            <span className="text-sm text-stone-600">
               Already have an account?{' '}
-              <NavLink to="/login" className="text-indigo-600 font-semibold hover:text-indigo-700 transition-colors">
+              <NavLink to="/login" className="text-[#2147ba] font-semibold hover:text-[#173483] transition-colors">
                 Login
               </NavLink>
             </span>
