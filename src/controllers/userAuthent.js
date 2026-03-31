@@ -13,7 +13,7 @@ const register = async (req, res) => {
         // Check if email already exists
         const existingUser = await User.findOne({ emailID: emailID.toLowerCase().trim() });
         if (existingUser) {
-            return res.status(409).json({ message: "Email already registered. Please login instead." });
+            return res.status(409).json({ message: "User already exists with this email. Please login instead." });
         }
 
         req.body.password = await bcrypt.hash(password, 10);
@@ -35,7 +35,7 @@ const register = async (req, res) => {
         const message = err.message || String(err);
         // Handle mongoose duplicate key error as fallback
         if (err.code === 11000) {
-            return res.status(409).json({ message: "Email already registered. Please login instead." });
+            return res.status(409).json({ message: "User already exists with this email. Please login instead." });
         }
         res.status(400).json({ message: message });
     }

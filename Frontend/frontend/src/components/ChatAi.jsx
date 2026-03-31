@@ -1,11 +1,18 @@
 import { useState, useRef, useEffect } from "react";
 import { useForm } from "react-hook-form";
 import axiosClient from "../utils/axiosClient";
-import { Send, Bot, User } from 'lucide-react';
+import { Send, Bot, User } from "lucide-react";
 
 function ChatAi({ problem }) {
     const [messages, setMessages] = useState([
-        { role: 'model', parts: [{ text: "👋 Hi! I'm your AI coding assistant. Ask me anything about this problem — I can give hints, review your code, or explain approaches." }] }
+        {
+            role: "model",
+            parts: [
+                {
+                    text: "Hi! I'm your AI coding assistant. Ask me anything about this problem. I can give hints, review your code, or explain approaches."
+                }
+            ]
+        }
     ]);
     const [isLoading, setIsLoading] = useState(false);
 
@@ -17,7 +24,7 @@ function ChatAi({ problem }) {
     }, [messages]);
 
     const onSubmit = async (data) => {
-        const userMessage = { role: 'user', parts: [{ text: data.message }] };
+        const userMessage = { role: "user", parts: [{ text: data.message }] };
         const updatedMessages = [...messages, userMessage];
         setMessages(updatedMessages);
         reset();
@@ -32,16 +39,22 @@ function ChatAi({ problem }) {
                 startCode: problem.startCode
             });
 
-            setMessages(prev => [...prev, {
-                role: 'model',
-                parts: [{ text: response.data.message }]
-            }]);
+            setMessages((prev) => [
+                ...prev,
+                {
+                    role: "model",
+                    parts: [{ text: response.data.message }]
+                }
+            ]);
         } catch (error) {
             console.error("API Error:", error);
-            setMessages(prev => [...prev, {
-                role: 'model',
-                parts: [{ text: "⚠️ Sorry, I couldn't process your request. Please try again." }]
-            }]);
+            setMessages((prev) => [
+                ...prev,
+                {
+                    role: "model",
+                    parts: [{ text: error.response?.data?.message || "Sorry, I couldn't process your request. Please try again." }]
+                }
+            ]);
         } finally {
             setIsLoading(false);
         }
@@ -81,9 +94,9 @@ function ChatAi({ problem }) {
                         </div>
                         <div className="bg-slate-100 px-4 py-3 rounded-2xl rounded-bl-md">
                             <div className="flex gap-1">
-                                <span className="w-2 h-2 bg-slate-400 rounded-full animate-bounce" style={{ animationDelay: '0ms' }}></span>
-                                <span className="w-2 h-2 bg-slate-400 rounded-full animate-bounce" style={{ animationDelay: '150ms' }}></span>
-                                <span className="w-2 h-2 bg-slate-400 rounded-full animate-bounce" style={{ animationDelay: '300ms' }}></span>
+                                <span className="w-2 h-2 bg-slate-400 rounded-full animate-bounce" style={{ animationDelay: "0ms" }}></span>
+                                <span className="w-2 h-2 bg-slate-400 rounded-full animate-bounce" style={{ animationDelay: "150ms" }}></span>
+                                <span className="w-2 h-2 bg-slate-400 rounded-full animate-bounce" style={{ animationDelay: "300ms" }}></span>
                             </div>
                         </div>
                     </div>
