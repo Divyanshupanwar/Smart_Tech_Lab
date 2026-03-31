@@ -4,6 +4,7 @@ import { useDispatch, useSelector } from 'react-redux';
 import { logoutUser } from '../authSlice';
 import axiosClient from '../utils/axiosClient';
 import { Code, Terminal, BookOpen, Users, GraduationCap, ChevronRight, BarChart3, LogOut, Shield, ClipboardList } from 'lucide-react';
+import SubjectPlayground from '../components/SubjectPlayground';
 
 const subjectConfig = {
   DSA: {
@@ -135,37 +136,41 @@ function SubjectSelection() {
             <div className="w-10 h-10 border-[3px] border-stone-300 border-t-[#2147ba] rounded-full animate-spin"></div>
           </div>
         ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 max-w-5xl mx-auto">
-            {Object.entries(subjectConfig).map(([key, config], index) => {
-              const Icon = config.icon;
-              const problemCount = getStatForSubject(key);
-              return (
-                <NavLink
-                  key={key}
-                  to={`/subject/${key}`}
-                  className={`group card-professional p-8 ${config.borderHover} animate-fade-in-up stagger-${index + 1}`}
-                >
-                  <div className="flex items-start justify-between mb-6">
-                    <div className={`w-14 h-14 rounded-2xl ${config.iconBg} flex items-center justify-center group-hover:scale-110 transition-transform duration-300`}>
-                      <Icon className={`w-7 h-7 ${config.iconColor}`} />
+          <>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 max-w-5xl mx-auto">
+              {Object.entries(subjectConfig).map(([key, config], index) => {
+                const Icon = config.icon;
+                const problemCount = getStatForSubject(key);
+                return (
+                  <NavLink
+                    key={key}
+                    to={`/subject/${key}`}
+                    className={`group card-professional p-8 ${config.borderHover} animate-fade-in-up stagger-${index + 1}`}
+                  >
+                    <div className="flex items-start justify-between mb-6">
+                      <div className={`w-14 h-14 rounded-2xl ${config.iconBg} flex items-center justify-center group-hover:scale-110 transition-transform duration-300`}>
+                        <Icon className={`w-7 h-7 ${config.iconColor}`} />
+                      </div>
+                      <span className={`px-3 py-1.5 rounded-full ${config.badge} text-xs font-bold`}>
+                        {problemCount} Problems
+                      </span>
                     </div>
-                    <span className={`px-3 py-1.5 rounded-full ${config.badge} text-xs font-bold`}>
-                      {problemCount} Problems
-                    </span>
-                  </div>
 
-                  <h3 className="font-display text-2xl font-bold text-stone-950 mb-2">{config.name}</h3>
-                  <p className="text-stone-600 text-sm leading-relaxed mb-3">{config.fullName}</p>
-                  <p className="text-stone-500 text-sm leading-relaxed mb-6">{config.description}</p>
+                    <h3 className="font-display text-2xl font-bold text-stone-950 mb-2">{config.name}</h3>
+                    <p className="text-stone-600 text-sm leading-relaxed mb-3">{config.fullName}</p>
+                    <p className="text-stone-500 text-sm leading-relaxed mb-6">{config.description}</p>
 
-                  <div className="flex items-center gap-2 text-sm font-bold text-[#2147ba] group-hover:gap-3 transition-all">
-                    Start Learning
-                    <ChevronRight className="w-4 h-4" />
-                  </div>
-                </NavLink>
-              );
-            })}
-          </div>
+                    <div className="flex items-center gap-2 text-sm font-bold text-[#2147ba] group-hover:gap-3 transition-all">
+                      Start Learning
+                      <ChevronRight className="w-4 h-4" />
+                    </div>
+                  </NavLink>
+                );
+              })}
+            </div>
+
+            <SubjectPlayground />
+          </>
         )}
       </div>
     </div>

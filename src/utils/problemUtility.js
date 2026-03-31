@@ -1,5 +1,10 @@
 const axios = require('axios');
 
+const judgeHeaders = {
+    'x-rapidapi-key': process.env.JUDGE0_API_KEY || process.env.RAPIDAPI_KEY || 'd7b77fb7c3msh4e36cb7582d9741p1a3dadjsnb67bae3572ae',
+    'x-rapidapi-host': process.env.JUDGE0_API_HOST || 'judge0-ce.p.rapidapi.com'
+};
+
 const getLanguageById = (lang) => {
     const language = {
         "c++": 54,
@@ -18,8 +23,7 @@ const submitBatch = async (submissions) => {
             base64_encoded: 'false'
         },
         headers: {
-            'x-rapidapi-key': 'd7b77fb7c3msh4e36cb7582d9741p1a3dadjsnb67bae3572ae',
-            'x-rapidapi-host': 'judge0-ce.p.rapidapi.com',
+            ...judgeHeaders,
             'Content-Type': 'application/json'
         },
         data: {
@@ -66,10 +70,7 @@ const submitToken = async (resultToken) => {
             base64_encoded: 'false',
             fields: requiredFields
         },
-        headers: {
-            'x-rapidapi-key': 'd7b77fb7c3msh4e36cb7582d9741p1a3dadjsnb67bae3572ae',
-            'x-rapidapi-host': 'judge0-ce.p.rapidapi.com'
-        }
+        headers: judgeHeaders
     };
 
     while (true) {
@@ -90,4 +91,21 @@ const submitToken = async (resultToken) => {
     }
 };
 
-module.exports = { getLanguageById, submitBatch, submitToken };
+const executeCode = async ({ source_code, language_id, stdin = '' }) => {
+    const submitResult = await submitBatch([
+        {
+            source_code,
+            language_id,
+            stdin
+        }
+    ]);
+
+    if (!Array.isArray(submitResult) || !submitResult[0]?.token) {
+        throw new Error('Judge0 playground submission failed');
+    }
+
+    const [result] = await submitToken([submitResult[0].token]);
+    return result;
+};
+
+module.exports = { getLanguageById, submitBatch, submitToken, executeCode };

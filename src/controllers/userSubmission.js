@@ -1,7 +1,7 @@
 const Problem = require("../models/problem");
 const Submission = require("../models/submission");
 const User = require("../models/user");
-const {getLanguageById,submitBatch,submitToken} = require("../utils/problemUtility");
+const {getLanguageById,submitBatch,submitToken,executeCode} = require("../utils/problemUtility");
 
 const submitCode = async (req,res)=>{
    
@@ -204,8 +204,54 @@ const runCode = async(req,res)=>{
    }
 }
 
+const runPlaygroundCode = async (req, res) => {
+    try {
+        let { code, language, stdin } = req.body;
 
-module.exports = {submitCode,runCode};
+        if (!code || !language) {
+            return res.status(400).json({ message: "Code and language are required" });
+        }
+
+        if (language === 'cpp') {
+            language = 'c++';
+        }
+
+        const languageId = getLanguageById(language);
+        if (!languageId) {
+            return res.status(400).json({ message: "Unsupported language selected" });
+        }
+
+        const result = await executeCode({
+            source_code: code,
+            language_id: languageId,
+            stdin: stdin || ''
+        });
+
+        const statusId = result?.status_id;
+        const statusDescription = result?.status?.description || 'Unknown status';
+        const consoleOutput = result?.stdout || result?.stderr || result?.compile_output || result?.message || '';
+
+        return res.status(200).json({
+            success: statusId === 3,
+            statusId,
+            status: statusDescription,
+            stdout: result?.stdout || '',
+            stderr: result?.stderr || '',
+            compileOutput: result?.compile_output || '',
+            message: result?.message || '',
+            console: consoleOutput,
+            time: result?.time || null,
+            memory: result?.memory || null
+        });
+    }
+    catch (err) {
+        console.error("Error running playground code:", err);
+        res.status(500).json({ message: "Failed to run playground code", error: err.message });
+    }
+}
+
+
+module.exports = {submitCode,runCode,runPlaygroundCode};
 
 
 
