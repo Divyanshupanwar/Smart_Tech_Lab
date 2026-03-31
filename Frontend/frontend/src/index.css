@@ -115,6 +115,30 @@ a {
   z-index: 1;
 }
 
+.hero-stage {
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
+}
+
+.interactive-dot-field {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  overflow: hidden;
+}
+
+.interactive-dot-field canvas {
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+
+.interactive-dot-soft-mask {
+  mask-image: radial-gradient(circle at center, rgba(0, 0, 0, 1) 0%, rgba(0, 0, 0, 0.85) 42%, rgba(0, 0, 0, 0.18) 78%, transparent 100%);
+}
+
 .eyebrow-pill {
   display: inline-flex;
   align-items: center;

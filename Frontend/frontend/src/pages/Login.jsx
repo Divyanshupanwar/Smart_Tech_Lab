@@ -6,6 +6,7 @@ import { useNavigate, NavLink } from 'react-router';
 import { loginUser, clearError } from '../authSlice';
 import { useEffect, useState } from 'react';
 import { Code, Eye, EyeOff, ArrowRight } from 'lucide-react';
+import InteractiveDotField from '../components/InteractiveDotField';
 
 const loginSchema = z.object({
   emailID: z.string().email('Please enter a valid email'),
@@ -40,6 +41,7 @@ function Login() {
 
   return (
     <div className="min-h-screen page-shell flex items-center justify-center p-4">
+      <InteractiveDotField className="interactive-dot-soft-mask opacity-70" density="light" centerX={0.5} centerY={0.42} />
       <div className="w-full max-w-md animate-scale-in page-content">
         <div className="text-center mb-8">
           <NavLink to="/landing" className="inline-flex items-center gap-3">

@@ -4,6 +4,7 @@ import { useDispatch, useSelector } from 'react-redux';
 import { logoutUser } from '../authSlice';
 import axiosClient from '../utils/axiosClient';
 import { Code, Terminal, BookOpen, Users, GraduationCap, ChevronRight, BarChart3, LogOut, Shield, ClipboardList } from 'lucide-react';
+import InteractiveDotField from '../components/InteractiveDotField';
 
 const subjectConfig = {
   DSA: {
@@ -79,6 +80,7 @@ function SubjectSelection() {
 
   return (
     <div className="min-h-screen page-shell mesh-overlay">
+      <InteractiveDotField className="interactive-dot-soft-mask opacity-75" density="medium" centerX={0.5} centerY={0.18} />
       <nav className="sticky top-0 z-50 navbar-glass">
         <div className="max-w-7xl mx-auto px-6 py-4 flex items-center justify-between">
           <div className="flex items-center gap-3">
