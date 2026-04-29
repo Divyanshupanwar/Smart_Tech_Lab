@@ -1,18 +1,20 @@
 const jwt = require('jsonwebtoken');
 
-const isSecureCookie = process.env.NODE_ENV === 'production' || !!process.env.VERCEL;
+const isProd = process.env.NODE_ENV === 'production';
 
 const cookieOptions = {
     httpOnly: true,
-    sameSite: 'lax',
-    secure: isSecureCookie,
-    maxAge: 60 * 60 * 1000
+    sameSite: isProd ? 'None' : 'lax',
+    secure: isProd,
+    maxAge: 60 * 60 * 1000,
+    path: '/'
 };
 
 const clearCookieOptions = {
     httpOnly: true,
-    sameSite: 'lax',
-    secure: isSecureCookie
+    sameSite: isProd ? 'None' : 'lax',
+    secure: isProd,
+    path: '/'
 };
 
 const serializeUser = (user) => ({
