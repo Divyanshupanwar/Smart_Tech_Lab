@@ -2,7 +2,8 @@ require('dotenv').config();
 
 const createApp = require('./app');
 const { ensureAppReady } = require('./bootstrap');
-const apiPrefix = '/api';
+
+const apiPrefix = process.env.NODE_ENV === 'production' ? '/api' : '';
 const port = Number(process.env.PORT) || 3000;
 const app = createApp({ apiPrefix });
 const initializeConnection = async () => {
