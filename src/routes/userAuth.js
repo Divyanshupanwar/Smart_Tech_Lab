@@ -1,14 +1,29 @@
 const express = require('express');
 const authRouter = express.Router();
-const { register, login, logout,adminRegister,deleteProfile } = require('../controllers/userAuthent');
+const {
+    register,
+    login,
+    logout,
+    adminRegister,
+    deleteProfile,
+    forgotPassword,
+    getPublicAuthConfig,
+    resetPassword,
+    googleLogin
+} = require('../controllers/userAuthent');
 const userMiddleWare = require('../middleware/userMiddleWare');
 const adminMiddleware = require('../middleware/adminMiddleware');
 const jwt = require('jsonwebtoken');
 const User = require('../models/user');
 const redisClient = require('../config/redis');
+const { serializeUser } = require('../utils/auth');
 
 authRouter.post('/register', register);
 authRouter.post('/login', login);
+authRouter.post('/google-login', googleLogin);
+authRouter.post('/forgot-password', forgotPassword);
+authRouter.post('/reset-password/:token', resetPassword);
+authRouter.get('/public-auth-config', getPublicAuthConfig);
 authRouter.post('/logout',userMiddleWare,logout);
 authRouter.post('/admin/register',adminMiddleware,adminRegister);
 authRouter.delete('/deleteProfile',userMiddleWare,deleteProfile);
@@ -25,6 +40,10 @@ authRouter.get('/check', async (req,res)=>{
             return res.status(200).json({ user: null, message: "User not found" });
         }
 
+        if ((payload.authVersion ?? 0) !== (result.authVersion ?? 0)) {
+            return res.status(200).json({ user: null, message: "Session expired" });
+        }
+
         if (redisClient.isOpen) {
             const isBlocked = await redisClient.exists(`token:${token}`);
             if (isBlocked) {
@@ -32,15 +51,8 @@ authRouter.get('/check', async (req,res)=>{
             }
         }
 
-        const reply = {
-            firstName: result.firstName,
-            emailID: result.emailID,
-            _id: result._id,
-            role :result.role,
-        };
-
         res.status(200).json({
-            user:reply,
+            user:serializeUser(result),
             message:"Valid User"
         });
     } catch (err) {

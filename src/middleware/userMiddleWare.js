@@ -18,6 +18,9 @@ const userMiddleWare = async (req, res, next) => {
         if (!result)
             return res.status(401).json({ message: "User does not exist!" });
 
+        if ((payload.authVersion ?? 0) !== (result.authVersion ?? 0))
+            return res.status(401).json({ message: "Session expired. Please login again." });
+
         // Check token is not present in redis blocklist
         if (redisClient.isOpen) {
             const IsBlocked = await redisClient.exists(`token:${token}`);

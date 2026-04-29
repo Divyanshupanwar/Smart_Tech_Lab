@@ -34,6 +34,23 @@ const userSchema = new Schema({
     
 
     },
+    googleId: {
+        type: String,
+        unique: true,
+        sparse: true
+    },
+    authVersion: {
+        type: Number,
+        default: 0
+    },
+    passwordResetTokenHash: {
+        type: String,
+        default: null
+    },
+    passwordResetTokenExpiresAt: {
+        type: Date,
+        default: null
+    },
     problemSolved:{
         type:[{
             type:Schema.Types.ObjectId,
@@ -45,7 +62,9 @@ const userSchema = new Schema({
     },
     password:{
         type:String,
-        required:true,
+        required: function () {
+            return !this.googleId;
+        },
     }
 },{
     timestamps:true

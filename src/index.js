@@ -3,15 +3,17 @@ require('dotenv').config();
 const createApp = require('./app');
 const { ensureAppReady } = require('./bootstrap');
 
-const app = createApp();
+const apiPrefix = process.env.NODE_ENV === 'production' ? '/api' : '';
+const port = Number(process.env.PORT) || 3000;
+const app = createApp({ apiPrefix });
 
 const initializeConnection = async () => {
     try {
         await ensureAppReady();
         console.log('DB Connected');
 
-        app.listen(process.env.PORT, () => {
-            console.log('Server listening at port number: ' + process.env.PORT);
+        app.listen(port, () => {
+            console.log('Server listening at port number: ' + port);
         });
     }
     catch (err) {

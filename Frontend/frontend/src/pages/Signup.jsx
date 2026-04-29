@@ -6,6 +6,7 @@ import { useDispatch, useSelector } from 'react-redux';
 import { useNavigate, NavLink } from 'react-router';
 import { registerUser, clearError } from '../authSlice';
 import { Code, Eye, EyeOff, ArrowRight, AlertCircle } from 'lucide-react';
+import GoogleSignInButton from '../components/GoogleSignInButton';
 
 const signupSchema = z.object({
   firstName: z.string().min(3, 'Name must be at least 3 characters'),
@@ -136,6 +137,14 @@ function Signup() {
               )}
             </button>
           </form>
+
+          <div className="my-6 flex items-center gap-3">
+            <div className="h-px flex-1 bg-stone-200" />
+            <span className="text-xs font-semibold uppercase tracking-[0.2em] text-stone-400">Or</span>
+            <div className="h-px flex-1 bg-stone-200" />
+          </div>
+
+          <GoogleSignInButton />
 
           <div className="text-center mt-8 pt-6 border-t border-stone-200/80">
             <span className="text-sm text-stone-600">

@@ -1,6 +1,8 @@
 import {Routes, Route, Navigate} from "react-router";
 import Login from "./pages/Login";
 import Signup from "./pages/Signup";
+import ForgotPassword from "./pages/ForgotPassword";
+import ResetPassword from "./pages/ResetPassword";
 import LandingPage from "./pages/LandingPage";
 import SubjectSelection from "./pages/SubjectSelection";
 import SubjectProblems from "./pages/SubjectProblems";
@@ -43,6 +45,8 @@ function App(){
       <Route path="/landing" element={isAuthenticated ? <Navigate to="/" /> : <LandingPage />} />
       <Route path="/login" element={isAuthenticated ? <Navigate to="/" /> : <Login />} />
       <Route path="/signup" element={isAuthenticated ? <Navigate to="/" /> : <Signup />} />
+      <Route path="/forgot-password" element={isAuthenticated ? <Navigate to="/" /> : <ForgotPassword />} />
+      <Route path="/reset-password/:token" element={isAuthenticated ? <Navigate to="/" /> : <ResetPassword />} />
 
       {/* Protected Routes - Subject Selection (Home after login) */}
       <Route path="/" element={isAuthenticated ? <SubjectSelection /> : <LandingPage />} />

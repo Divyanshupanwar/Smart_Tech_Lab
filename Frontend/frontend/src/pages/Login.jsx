@@ -6,6 +6,7 @@ import { useNavigate, NavLink } from 'react-router';
 import { loginUser, clearError } from '../authSlice';
 import { useEffect, useState } from 'react';
 import { Code, Eye, EyeOff, ArrowRight } from 'lucide-react';
+import GoogleSignInButton from '../components/GoogleSignInButton';
 
 const loginSchema = z.object({
   emailID: z.string().email('Please enter a valid email'),
@@ -78,7 +79,12 @@ function Login() {
             </div>
 
             <div>
-              <label className="block text-sm font-semibold text-stone-700 mb-2">Password</label>
+              <div className="mb-2 flex items-center justify-between">
+                <label className="block text-sm font-semibold text-stone-700">Password</label>
+                <NavLink to="/forgot-password" className="text-xs font-semibold text-[#2147ba] transition-colors hover:text-[#173483]">
+                  Forgot password?
+                </NavLink>
+              </div>
               <div className="relative">
                 <input
                   type={showPassword ? 'text' : 'password'}
@@ -111,6 +117,14 @@ function Login() {
               )}
             </button>
           </form>
+
+          <div className="my-6 flex items-center gap-3">
+            <div className="h-px flex-1 bg-stone-200" />
+            <span className="text-xs font-semibold uppercase tracking-[0.2em] text-stone-400">Or</span>
+            <div className="h-px flex-1 bg-stone-200" />
+          </div>
+
+          <GoogleSignInButton />
 
           <div className="text-center mt-8 pt-6 border-t border-stone-200/80">
             <span className="text-sm text-stone-600">
