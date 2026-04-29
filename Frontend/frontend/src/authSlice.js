@@ -16,7 +16,7 @@ export const registerUser = createAsyncThunk(
   'auth/register',
   async (userData, { rejectWithValue }) => {
     try {
-      const response = awaitaxiosClient.post('/api/user/register', userData);
+      const response = await axiosClient.post('/user/register', userData);
       return response.data.user;
     } catch (error) {
       return rejectWithValue(getErrorMessage(error));
@@ -29,7 +29,7 @@ export const loginUser = createAsyncThunk(
   'auth/login',
   async (credentials, { rejectWithValue }) => {
     try {
-      const response = await axiosClient.post('/api/user/login', credentials);
+      const response = await axiosClient.post('/user/login', credentials);
       return response.data.user;
     } catch (error) {
       return rejectWithValue(getErrorMessage(error));
@@ -42,7 +42,7 @@ export const loginWithGoogle = createAsyncThunk(
   'auth/googleLogin',
   async ({ credential }, { rejectWithValue }) => {
     try {
-      const response = await axiosClient.post('/api/user/google-login', { credential });
+      const response = await axiosClient.post('/user/google-login', { credential });
       return response.data.user;
     } catch (error) {
       return rejectWithValue(getErrorMessage(error));
@@ -55,7 +55,7 @@ export const checkAuth = createAsyncThunk(
   'auth/check',
   async (_, { rejectWithValue }) => {
     try {
-      const { data } = await axiosClient.get('/api/user/check');
+      const { data } = await axiosClient.get('/user/check');
       // Handle case where backend returns non-JSON or error string
       if (!data || !data.user) {
         return rejectWithValue(null);
@@ -72,7 +72,7 @@ export const logoutUser = createAsyncThunk(
   'auth/logout',
   async (_, { rejectWithValue }) => {
     try {
-      await axiosClient.post('/api/user/logout');
+      await axiosClient.post('/user/logout');
       return null;
     } catch (error) {
       return rejectWithValue(getErrorMessage(error));
