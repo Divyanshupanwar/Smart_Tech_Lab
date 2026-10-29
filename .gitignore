@@ -29,3 +29,5 @@ Thumbs.db
 
 # Deployment
 .vercel
+
+.env.docker
