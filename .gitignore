@@ -1,18 +1,14 @@
-# Node modules (all places)
+# Node modules
 node_modules/
-src/node_modules/
-Frontend/frontend/node_modules/
 
-# Env files (VERY IMPORTANT)
+# Environment files and secrets
 .env
 .env.*
-src/.env
-Frontend/frontend/.env
+!.env.example
 
 # Build files
 dist/
 build/
-Frontend/frontend/dist/
 
 # Logs
 npm-debug.log*
@@ -28,6 +24,7 @@ Thumbs.db
 .idea/
 
 # Deployment
-.vercel
+.vercel/
 
-.env.docker
+# Private key files
+*.pem
