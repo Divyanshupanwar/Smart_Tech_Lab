@@ -1,5 +1,5 @@
 const { GoogleGenerativeAI } = require("@google/generative-ai");
-require('dotenv').config();
+require('../config/loadEnv');
 
 async function listModels() {
     try {

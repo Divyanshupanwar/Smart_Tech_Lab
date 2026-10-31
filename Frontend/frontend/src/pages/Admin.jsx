@@ -1,4 +1,4 @@
-import { Plus, Trash2, Video, ClipboardList, ArrowLeft, Code } from 'lucide-react';
+import { Plus, Trash2, Video, ClipboardList, ArrowLeft, Code, FlaskConical } from 'lucide-react';
 import { NavLink } from 'react-router';
 
 function Admin() {
@@ -38,6 +38,15 @@ function Admin() {
       iconBg: 'bg-violet-50',
       iconColor: 'text-violet-600',
       route: '/admin/assignment'
+    },
+    {
+      id: 'lab-exams',
+      title: 'Lab Examinations',
+      description: 'Schedule practical exams, monitor students and review results',
+      icon: FlaskConical,
+      iconBg: 'bg-cyan-50',
+      iconColor: 'text-cyan-700',
+      route: '/admin/lab-exams'
     }
   ];
 

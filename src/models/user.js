@@ -27,9 +27,12 @@ const userSchema = new Schema({
         max:70,
 
     },
+    semester: { type: String, trim: true, maxlength: 40 },
+    batch: { type: String, trim: true, maxlength: 80 },
+    studentGroup: { type: String, trim: true, maxlength: 80 },
     role:{
         type:String,
-        enum:['user','admin'],
+        enum:['user','teacher','admin'],
         default:'user',
     
 

@@ -3,7 +3,7 @@ import { NavLink } from 'react-router';
 import { useDispatch, useSelector } from 'react-redux';
 import { logoutUser } from '../authSlice';
 import axiosClient from '../utils/axiosClient';
-import { Code, Terminal, BookOpen, Users, GraduationCap, ChevronRight, BarChart3, LogOut, Shield, ClipboardList } from 'lucide-react';
+import { Code, Terminal, BookOpen, Users, GraduationCap, ChevronRight, BarChart3, LogOut, Shield, ClipboardList, FlaskConical, Swords } from 'lucide-react';
 import SubjectPlayground from '../components/SubjectPlayground';
 
 const subjectConfig = {
@@ -100,6 +100,22 @@ function SubjectSelection() {
               <ClipboardList className="w-4 h-4" />
               <span className="hidden sm:inline">Assignments</span>
             </NavLink>
+            <NavLink to="/lab-practicals" className="ghost-button flex items-center gap-2 px-4 py-2.5 text-sm font-semibold text-stone-700">
+              <FlaskConical className="w-4 h-4" />
+              <span className="hidden sm:inline">Lab Practicals</span>
+            </NavLink>
+            {user?.role === 'user' && (
+              <NavLink to="/battle-arena" className="ghost-button flex items-center gap-2 px-4 py-2.5 text-sm font-semibold text-violet-700">
+                <Swords className="w-4 h-4" />
+                <span className="hidden sm:inline">Battle Arena</span>
+              </NavLink>
+            )}
+            {user?.role === 'teacher' && (
+              <NavLink to="/admin/lab-exams" className="ghost-button flex items-center gap-2 px-4 py-2.5 text-sm font-semibold text-violet-700">
+                <Shield className="w-4 h-4" />
+                <span className="hidden sm:inline">Manage Exams</span>
+              </NavLink>
+            )}
             {user?.role === 'admin' && (
               <NavLink to="/admin" className="ghost-button flex items-center gap-2 px-4 py-2.5 text-sm font-semibold text-amber-700">
                 <Shield className="w-4 h-4" />

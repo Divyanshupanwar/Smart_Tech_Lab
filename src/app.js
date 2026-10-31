@@ -1,4 +1,4 @@
-require('dotenv').config();
+require('./config/loadEnv');
 const express = require('express');
 const cookieParser = require('cookie-parser');
 const cors = require('cors');
@@ -10,6 +10,8 @@ const submitRouter = require('./routes/submit');
 const aiRouter = require('./routes/aiChatting');
 const videoRouter = require('./routes/videoCreator');
 const assignmentRouter = require('./routes/assignment');
+const labExamRouter = require('./routes/labExam');
+const battleRouter = require('./routes/battle');
 
 const buildAllowedOrigins = () => {
     const vercelOrigin = process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : null;
@@ -41,7 +43,7 @@ const createApp = ({ apiPrefix = '' } = {}) => {
         credentials: true
     }));
 
-    app.use(express.json());
+    app.use(express.json({ limit: '2mb' }));
     app.use(cookieParser());
 
     app.use(`${apiPrefix}/user`, authRouter);
@@ -50,6 +52,8 @@ const createApp = ({ apiPrefix = '' } = {}) => {
     app.use(`${apiPrefix}/ai`, aiRouter);
     app.use(`${apiPrefix}/video`, videoRouter);
     app.use(`${apiPrefix}/assignment`, assignmentRouter);
+    app.use(`${apiPrefix}/lab-exams`, labExamRouter);
+    app.use(`${apiPrefix}/battle`, battleRouter);
 
     app.get(`${apiPrefix}/health`, (_req, res) => {
         res.status(200).json({ ok: true });

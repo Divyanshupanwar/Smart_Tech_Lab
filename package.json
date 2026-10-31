@@ -8,13 +8,14 @@
     "install:client": "npm install --prefix Frontend/frontend",
     "build": "npm run build --prefix Frontend/frontend",
     "start": "node src/index.js",
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "node --test src/tests/examRules.test.js src/tests/battleRules.test.js src/tests/judge0Config.test.js"
   },
   "keywords": [],
   "author": "",
   "license": "ISC",
   "dependencies": {
     "@google/generative-ai": "^0.24.1",
+    "@socket.io/redis-adapter": "^8.3.0",
     "axios": "^1.13.2",
     "bcrypt": "^6.0.0",
     "cloudinary": "^2.8.0",
@@ -26,6 +27,7 @@
     "mongoose": "^8.19.2",
     "nodemailer": "^8.0.7",
     "redis": "^5.9.0",
+    "socket.io": "^4.8.4",
     "validator": "^13.15.20"
   }
 }

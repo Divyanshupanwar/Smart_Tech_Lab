@@ -21,7 +21,10 @@ const serializeUser = (user) => ({
     firstName: user.firstName,
     emailID: user.emailID,
     _id: user._id,
-    role: user.role
+    role: user.role,
+    semester: user.semester || null,
+    batch: user.batch || null,
+    studentGroup: user.studentGroup || null
 });
 
 const buildTokenPayload = (user) => ({
