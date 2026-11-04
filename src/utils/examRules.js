@@ -37,6 +37,8 @@ const canManageExam = (exam, user) => Boolean(
 
 const shouldTerminateAttempt = (proctoring, eventType, nextViolationCount) => Boolean(
     (eventType === 'route_navigation' && proctoring?.terminateOnRouteChange !== false)
+    || (eventType === 'fullscreen_exit' && proctoring?.fullscreen !== false)
+    || (['copy', 'paste', 'cut'].includes(eventType) && proctoring?.clipboard !== false)
     || (proctoring?.autoSubmitOnMaxViolations
         && Number(proctoring.maxViolations) >= 3
         && nextViolationCount >= Number(proctoring.maxViolations))

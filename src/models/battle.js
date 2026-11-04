@@ -31,6 +31,7 @@ const playerSchema = new Schema({
     acceptedCount: { type: Number, default: 0 },
     connectionStatus: { type: String, enum: ['connected', 'disconnected'], default: 'connected' },
     disconnectedAt: { type: Date, default: null },
+    forfeitedAt: { type: Date, default: null },
     finishedAt: { type: Date, default: null },
     acceptedQuestions: [{ type: Schema.Types.ObjectId }]
 }, { _id: false });
@@ -54,7 +55,14 @@ const battleSchema = new Schema({
     incorrectPenalty: { type: Number, default: 10 },
     questions: { type: [battleQuestionSchema], default: [] },
     drafts: { type: [draftSchema], default: [] },
-    players: { type: [playerSchema], validate: [(value) => value.length === 2, 'A 1v1 battle requires exactly two players.'] },
+    players: {
+        type: [playerSchema],
+        validate: [
+            { validator: (value) => value.length >= 2 && value.length <= 16, message: 'A battle requires 2 to 16 players.' },
+            { validator: (value) => new Set(value.map((player) => String(player.userId))).size === value.length, message: 'A student can only join a battle once.' }
+        ]
+    },
+    playerCount: { type: Number, required: true, min: 2, max: 16, default: 2 },
     pendingSubmissions: { type: Number, default: 0, min: 0 },
     invitationId: { type: Schema.Types.ObjectId, ref: 'battleInvitation', default: null },
     matchedAt: { type: Date, required: true },
@@ -62,6 +70,7 @@ const battleSchema = new Schema({
     endsAt: { type: Date, required: true },
     completedAt: { type: Date, default: null },
     winnerId: { type: Schema.Types.ObjectId, ref: 'user', default: null },
+    winnerIds: [{ type: Schema.Types.ObjectId, ref: 'user' }],
     resultReason: { type: String, default: '' }
 }, { timestamps: true });
 

@@ -34,7 +34,7 @@ function LabExamRoom() {
   const [violationCount, setViolationCount] = useState(0);
   const [violationMessage, setViolationMessage] = useState('');
   const [selfieUrl, setSelfieUrl] = useState('');
-  const [fullscreen, setFullscreen] = useState(false);
+  const [fullscreen, setFullscreen] = useState(() => Boolean(document.fullscreenElement));
   const [showFinish, setShowFinish] = useState(false);
   const [activeTab, setActiveTab] = useState('description');
   const [consoleTab, setConsoleTab] = useState('run');
@@ -46,11 +46,14 @@ function LabExamRoom() {
   const offlineSinceRef = useRef(null);
   const faceReportedAtRef = useRef(0);
   const audioReportedAtRef = useRef(0);
+  const fullscreenRef = useRef(Boolean(document.fullscreenElement));
+  const lastClipboardEventRef = useRef({ type: '', at: 0 });
 
   const currentQuestion = data?.questions?.find((question) => question._id === questionId) || data?.questions?.[0] || null;
   const currentKey = currentQuestion ? savedDraftKey(currentQuestion._id, language) : '';
   const currentCode = drafts[currentKey] ?? starterFor(currentQuestion, language);
   const isReadOnly = data?.attempt?.status !== 'in_progress';
+  const canWork = !isReadOnly && fullscreen;
   const progress = data?.attempt?.questionProgress?.find((item) => item.questionId === currentQuestion?._id);
   const submissions = useMemo(() => data?.submissions || [], [data?.submissions]);
 
@@ -109,7 +112,7 @@ function LabExamRoom() {
   }, [attemptId, fetchAttempt]);
 
   const saveDraft = useCallback(async (qid, code, lang) => {
-    if (!qid || typeof code !== 'string' || !lang || isReadOnly) return;
+    if (!qid || typeof code !== 'string' || !lang || !canWork) return;
     setSaveState('saving');
     try {
       const { data: response } = await axiosClient.put(`/lab-exams/attempts/${attemptId}/drafts/${qid}`, { code, language: lang });
@@ -130,13 +133,13 @@ function LabExamRoom() {
       if (error.response?.status === 410) setSubmitError('The examination deadline has passed.');
       return false;
     }
-  }, [attemptId, isReadOnly]);
+  }, [attemptId, canWork]);
 
   useEffect(() => {
-    if (!currentQuestion || isReadOnly) return undefined;
+    if (!currentQuestion || !canWork) return undefined;
     const id = window.setTimeout(() => saveDraft(currentQuestion._id, currentCode, language), 750);
     return () => window.clearTimeout(id);
-  }, [currentQuestion, currentCode, language, isReadOnly, saveDraft]);
+  }, [currentQuestion, currentCode, language, canWork, saveDraft]);
 
   useEffect(() => {
     if (!data?.attempt?.deadline || isReadOnly) return undefined;
@@ -166,7 +169,7 @@ function LabExamRoom() {
   }, [attemptId, isReadOnly]);
 
   const finishExam = useCallback(async (automatic = false) => {
-    if (!data || isReadOnly || finishing) return;
+    if (!data || !canWork || finishing) return;
     setFinishing(true);
     setSubmitError('');
     if (currentQuestion) await saveDraft(currentQuestion._id, currentCode, language);
@@ -179,14 +182,14 @@ function LabExamRoom() {
     } finally {
       setFinishing(false);
     }
-  }, [attemptId, currentCode, currentQuestion, data, finishing, isReadOnly, language, saveDraft]);
+  }, [attemptId, currentCode, currentQuestion, data, finishing, canWork, language, saveDraft]);
 
   useEffect(() => {
-    if (secondsLeft === 0 && data?.exam?.autoSubmit && !isReadOnly && !autoFinishRef.current) {
+    if (secondsLeft === 0 && data?.exam?.autoSubmit && canWork && !autoFinishRef.current) {
       autoFinishRef.current = true;
       finishExam(true);
     }
-  }, [secondsLeft, data?.exam?.autoSubmit, isReadOnly, finishExam]);
+  }, [secondsLeft, data?.exam?.autoSubmit, canWork, finishExam]);
 
   useEffect(() => {
     const onOffline = () => {
@@ -213,32 +216,83 @@ function LabExamRoom() {
     if (!config || isReadOnly) return undefined;
     const onVisibility = () => { if (document.hidden && config.tabVisibility) reportEvent('tab_hidden'); };
     const onBlur = () => { if (config.windowFocus) reportEvent('window_blur'); };
-    const onCopy = () => { if (config.clipboard) reportEvent('copy'); };
-    const onPaste = () => { if (config.clipboard) reportEvent('paste'); };
-    const onCut = () => { if (config.clipboard) reportEvent('cut'); };
-    const onContextMenu = () => { if (config.contextMenu) reportEvent('context_menu'); };
+    const reportClipboardSignal = (type) => {
+      const now = Date.now();
+      if (lastClipboardEventRef.current.type === type && now - lastClipboardEventRef.current.at < 750) return;
+      lastClipboardEventRef.current = { type, at: now };
+      reportEvent(type);
+    };
+    const onClipboard = (type) => (event) => {
+      event.preventDefault();
+      event.stopPropagation();
+      reportClipboardSignal(type);
+    };
+    const onCopy = onClipboard('copy');
+    const onPaste = onClipboard('paste');
+    const onCut = onClipboard('cut');
+    const onKeyDown = (event) => {
+      const key = String(event.key || '').toLowerCase();
+      let type = '';
+      if ((event.ctrlKey || event.metaKey) && key === 'c') type = 'copy';
+      else if ((event.ctrlKey || event.metaKey) && key === 'v') type = 'paste';
+      else if ((event.ctrlKey || event.metaKey) && key === 'x') type = 'cut';
+      else if (event.shiftKey && key === 'insert') type = 'paste';
+      else if (event.shiftKey && key === 'delete') type = 'cut';
+      else if (event.ctrlKey && key === 'insert') type = 'copy';
+      if (type) {
+        event.preventDefault();
+        event.stopPropagation();
+        reportClipboardSignal(type);
+      }
+    };
+    const onContextMenu = (event) => {
+      if (!config.contextMenu) return;
+      event.preventDefault();
+      reportEvent('context_menu');
+    };
+    const hasDraggedContent = (event) => Boolean(event.dataTransfer?.types?.length);
+    const onDragOver = (event) => {
+      if (!hasDraggedContent(event)) return;
+      event.preventDefault();
+      event.stopPropagation();
+    };
+    const onDrop = (event) => {
+      if (!hasDraggedContent(event)) return;
+      event.preventDefault();
+      event.stopPropagation();
+      reportEvent('paste', { source: 'drag_drop' });
+    };
     const onFullscreen = () => {
       const active = Boolean(document.fullscreenElement);
+      const wasFullscreen = fullscreenRef.current;
+      fullscreenRef.current = active;
       setFullscreen(active);
-      if (!active && config.fullscreen && fullscreen) reportEvent('fullscreen_exit');
+      if (!active && wasFullscreen && config.fullscreen) reportEvent('fullscreen_exit');
     };
     document.addEventListener('visibilitychange', onVisibility);
-    document.addEventListener('copy', onCopy);
-    document.addEventListener('paste', onPaste);
-    document.addEventListener('cut', onCut);
-    document.addEventListener('contextmenu', onContextMenu);
+    document.addEventListener('copy', onCopy, true);
+    document.addEventListener('paste', onPaste, true);
+    document.addEventListener('cut', onCut, true);
+    document.addEventListener('keydown', onKeyDown, true);
+    document.addEventListener('contextmenu', onContextMenu, true);
+    document.addEventListener('dragover', onDragOver, true);
+    document.addEventListener('drop', onDrop, true);
     document.addEventListener('fullscreenchange', onFullscreen);
     window.addEventListener('blur', onBlur);
+    onFullscreen();
     return () => {
       document.removeEventListener('visibilitychange', onVisibility);
-      document.removeEventListener('copy', onCopy);
-      document.removeEventListener('paste', onPaste);
-      document.removeEventListener('cut', onCut);
-      document.removeEventListener('contextmenu', onContextMenu);
+      document.removeEventListener('copy', onCopy, true);
+      document.removeEventListener('paste', onPaste, true);
+      document.removeEventListener('cut', onCut, true);
+      document.removeEventListener('keydown', onKeyDown, true);
+      document.removeEventListener('contextmenu', onContextMenu, true);
+      document.removeEventListener('dragover', onDragOver, true);
+      document.removeEventListener('drop', onDrop, true);
       document.removeEventListener('fullscreenchange', onFullscreen);
       window.removeEventListener('blur', onBlur);
     };
-  }, [data?.exam?.proctoring, fullscreen, isReadOnly, reportEvent]);
+  }, [data?.exam?.proctoring, isReadOnly, reportEvent]);
 
   useEffect(() => {
     const config = data?.exam?.proctoring;
@@ -315,18 +369,19 @@ function LabExamRoom() {
   }, [data?.exam?.proctoring, isReadOnly, reportEvent]);
 
   const changeQuestion = async (nextQuestion) => {
-    if (currentQuestion && !isReadOnly) await saveDraft(currentQuestion._id, currentCode, language);
+    if (currentQuestion && canWork) await saveDraft(currentQuestion._id, currentCode, language);
     setQuestionId(nextQuestion._id);
     setRunResult(null);
     setActiveTab('description');
   };
 
   const changeLanguage = async (nextLanguage) => {
-    if (currentQuestion && !isReadOnly) await saveDraft(currentQuestion._id, currentCode, language);
+    if (currentQuestion && canWork) await saveDraft(currentQuestion._id, currentCode, language);
     setLanguage(nextLanguage);
   };
 
   const handleCodeChange = (code = '') => {
+    if (!canWork) return;
     const next = { ...drafts, [currentKey]: code };
     setDrafts(next);
     try { localStorage.setItem(draftKey(attemptId), JSON.stringify(next)); } catch { /* browser storage may be disabled */ }
@@ -335,7 +390,7 @@ function LabExamRoom() {
   };
 
   const runCode = async () => {
-    if (!currentQuestion || isReadOnly) return;
+    if (!currentQuestion || !canWork) return;
     setConsoleTab('run');
     setActiveTab('tests');
     setRunResult({ loading: true });
@@ -349,7 +404,7 @@ function LabExamRoom() {
   };
 
   const submitAnswer = async () => {
-    if (!currentQuestion || isReadOnly) return;
+    if (!currentQuestion || !canWork) return;
     setSubmitting(true);
     setSubmitError('');
     setConsoleTab('submission');
@@ -379,10 +434,9 @@ function LabExamRoom() {
     }
   };
 
-  const toggleFullscreen = async () => {
+  const restoreFullscreen = async () => {
     try {
-      if (document.fullscreenElement) await document.exitFullscreen();
-      else await document.documentElement.requestFullscreen();
+      if (!document.fullscreenElement) await document.documentElement.requestFullscreen({ navigationUI: 'hide' });
     } catch { setSubmitError('Fullscreen could not be enabled by this browser.'); }
   };
 
@@ -394,6 +448,7 @@ function LabExamRoom() {
 
   return (
     <div className="min-h-screen bg-[#090e19] text-slate-100">
+      {!fullscreen && !isReadOnly && <div className="fixed inset-0 z-[100] grid place-items-center bg-[#090e19] p-6 text-center"><div className="max-w-md rounded-3xl border border-amber-300/20 bg-[#121c2c] p-8 shadow-2xl"><Expand className="mx-auto h-9 w-9 text-amber-300" /><h2 className="mt-4 text-2xl font-bold">Full-screen mode is required</h2><p className="mt-3 text-sm leading-6 text-slate-300">Your editor is locked until you return to full screen. Leaving full screen is recorded and terminates the attempt.</p><button type="button" onClick={restoreFullscreen} className="mt-6 rounded-xl bg-[#2147ba] px-5 py-3 text-sm font-semibold text-white">Resume full screen</button></div></div>}
       <header className="sticky top-0 z-40 border-b border-white/10 bg-[#0d1422]/95 backdrop-blur">
         <div className="flex flex-wrap items-center justify-between gap-3 px-4 py-3 lg:px-6">
           <div className="flex min-w-0 items-center gap-3">
@@ -407,8 +462,7 @@ function LabExamRoom() {
             <span className="inline-flex items-center gap-2 rounded-xl bg-white/5 px-3 py-2 font-mono text-sm"><Clock3 className="h-4 w-4 text-amber-300" />{secondsLeft == null ? '--:--:--' : formatClock(secondsLeft)}</span>
             <span className="hidden rounded-xl bg-white/5 px-3 py-2 text-xs text-slate-300 md:inline">Score {formattedScore}</span>
             <span className="hidden text-xs text-slate-400 md:inline">{data.attempt.status.replaceAll('_', ' ')}</span>
-            {data.exam.proctoring?.fullscreen && !isReadOnly && <button type="button" onClick={toggleFullscreen} className="rounded-xl bg-white/5 p-2 text-slate-300 hover:bg-white/10" title={fullscreen ? 'Exit fullscreen' : 'Enter fullscreen'}><Expand className="h-4 w-4" /></button>}
-            {!isReadOnly && <button type="button" onClick={() => setShowFinish(true)} className="rounded-xl bg-[#2147ba] px-3 py-2 text-xs font-semibold hover:bg-blue-600">Submit exam</button>}
+            {!isReadOnly && <button type="button" onClick={() => setShowFinish(true)} disabled={!canWork} className="rounded-xl bg-[#2147ba] px-3 py-2 text-xs font-semibold hover:bg-blue-600 disabled:opacity-40">Submit exam</button>}
           </div>
         </div>
         {violationMessage && <div className="border-t border-white/5 px-5 py-1.5 text-xs text-amber-200">Monitoring signal #{violationCount}: {violationMessage}</div>}
@@ -420,7 +474,7 @@ function LabExamRoom() {
       <main className="grid min-h-[calc(100vh-62px)] lg:grid-cols-[minmax(320px,0.9fr)_minmax(460px,1.1fr)]">
         <section className="flex min-h-[45vh] flex-col border-b border-white/10 lg:min-h-0 lg:border-b-0 lg:border-r">
           <div className="flex gap-1 overflow-x-auto border-b border-white/10 px-3 py-2">
-            {data.questions.map((question, index) => <button key={question._id} onClick={() => changeQuestion(question)} className={`shrink-0 rounded-lg px-3 py-2 text-xs font-semibold ${question._id === currentQuestion?._id ? 'bg-[#2147ba] text-white' : 'text-slate-400 hover:bg-white/5 hover:text-white'}`}>Q{index + 1}<span className="ml-1.5 opacity-70">{question.marks}m</span></button>)}
+            {data.questions.map((question, index) => <button key={question._id} disabled={!canWork} onClick={() => changeQuestion(question)} className={`shrink-0 rounded-lg px-3 py-2 text-xs font-semibold disabled:opacity-40 ${question._id === currentQuestion?._id ? 'bg-[#2147ba] text-white' : 'text-slate-400 hover:bg-white/5 hover:text-white'}`}>Q{index + 1}<span className="ml-1.5 opacity-70">{question.marks}m</span></button>)}
           </div>
           <div className="flex gap-4 border-b border-white/10 px-4 py-3 text-xs">
             <button onClick={() => setActiveTab('description')} className={activeTab === 'description' ? 'font-semibold text-white' : 'text-slate-400'}>Problem</button>
@@ -450,13 +504,13 @@ function LabExamRoom() {
         <section className="flex min-h-[65vh] flex-col lg:min-h-0">
           <div className="flex flex-wrap items-center justify-between gap-3 border-b border-white/10 px-4 py-3">
             <div className="flex items-center gap-2"><span className="h-2.5 w-2.5 rounded-full bg-red-400" /><span className="h-2.5 w-2.5 rounded-full bg-amber-300" /><span className="h-2.5 w-2.5 rounded-full bg-emerald-400" /><span className="ml-2 text-xs font-medium text-slate-300">{languageLabels[language]} · Question {questionIndex + 1}</span></div>
-            <select value={language} onChange={(event) => changeLanguage(event.target.value)} disabled={isReadOnly} className="rounded-lg border border-white/10 bg-[#131d2d] px-3 py-2 text-xs text-slate-200 outline-none focus:border-blue-400">{Object.entries(languageLabels).map(([key, label]) => <option key={key} value={key}>{label}</option>)}</select>
+            <select value={language} onChange={(event) => changeLanguage(event.target.value)} disabled={!canWork} className="rounded-lg border border-white/10 bg-[#131d2d] px-3 py-2 text-xs text-slate-200 outline-none focus:border-blue-400">{Object.entries(languageLabels).map(([key, label]) => <option key={key} value={key}>{label}</option>)}</select>
           </div>
           <div className="min-h-[320px] flex-1">
-            <Editor height="100%" language={monacoLanguages[language]} value={currentCode} onChange={(value) => handleCodeChange(value || '')} onMount={(editor) => { editorRef.current = editor; }} theme="vs-dark" options={{ readOnly: isReadOnly, minimap: { enabled: false }, fontSize: 14, scrollBeyondLastLine: false, automaticLayout: true, tabSize: 2, insertSpaces: true, wordWrap: 'on', padding: { top: 16, bottom: 16 }, quickSuggestions: false, suggestOnTriggerCharacters: false }} />
+            <Editor height="100%" language={monacoLanguages[language]} value={currentCode} onChange={(value) => handleCodeChange(value || '')} onMount={(editor) => { editorRef.current = editor; }} theme="vs-dark" options={{ readOnly: !canWork, minimap: { enabled: false }, fontSize: 14, scrollBeyondLastLine: false, automaticLayout: true, tabSize: 2, insertSpaces: true, wordWrap: 'on', padding: { top: 16, bottom: 16 }, quickSuggestions: false, suggestOnTriggerCharacters: false }} />
           </div>
           <div className="flex flex-wrap items-center justify-between gap-3 border-y border-white/10 bg-[#0d1422] px-4 py-3">
-            <div className="flex gap-2"><button type="button" onClick={runCode} disabled={isReadOnly || !connectionOnline} className="inline-flex items-center gap-2 rounded-xl border border-white/10 px-4 py-2 text-xs font-semibold text-slate-200 hover:bg-white/5 disabled:opacity-40"><Play className="h-3.5 w-3.5" />Run visible tests</button><button type="button" onClick={submitAnswer} disabled={isReadOnly || submitting || !connectionOnline} className="inline-flex items-center gap-2 rounded-xl bg-emerald-600 px-4 py-2 text-xs font-semibold text-white hover:bg-emerald-500 disabled:opacity-40">{submitting ? <span className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-white border-t-transparent" /> : <Send className="h-3.5 w-3.5" />}Submit answer</button></div>
+            <div className="flex gap-2"><button type="button" onClick={runCode} disabled={!canWork || !connectionOnline} className="inline-flex items-center gap-2 rounded-xl border border-white/10 px-4 py-2 text-xs font-semibold text-slate-200 hover:bg-white/5 disabled:opacity-40"><Play className="h-3.5 w-3.5" />Run visible tests</button><button type="button" onClick={submitAnswer} disabled={!canWork || submitting || !connectionOnline} className="inline-flex items-center gap-2 rounded-xl bg-emerald-600 px-4 py-2 text-xs font-semibold text-white hover:bg-emerald-500 disabled:opacity-40">{submitting ? <span className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-white border-t-transparent" /> : <Send className="h-3.5 w-3.5" />}Submit answer</button></div>
             <span className="text-xs text-slate-500">Best score: {progress?.bestScore || 0} / {currentQuestion?.marks || 0}</span>
           </div>
           <div className="min-h-[160px] flex-1 overflow-y-auto bg-[#0b111d] p-4">

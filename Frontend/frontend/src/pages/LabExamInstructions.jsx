@@ -47,12 +47,20 @@ function LabExamInstructions() {
     setJoining(true);
     setError('');
     try {
-      if (!(mediaReady || await checkMedia())) return;
+      const fullscreenRequest = document.fullscreenElement
+        ? Promise.resolve()
+        : document.documentElement.requestFullscreen({ navigationUI: 'hide' });
+      await fullscreenRequest;
+      if (!document.fullscreenElement) throw new Error('Fullscreen was not enabled. Allow full-screen mode to begin this examination.');
+      if (!(mediaReady || await checkMedia())) {
+        await document.exitFullscreen().catch(() => {});
+        return;
+      }
       const { data } = await axiosClient.post(`/lab-exams/${examId}/join`);
       window.dispatchEvent(new CustomEvent('exam:attempt-started', { detail: { _id: data.attempt._id, examId } }));
       navigate(`/lab-practicals/${examId}/attempt/${data.attempt._id}`);
     } catch (requestError) {
-      setError(requestError.response?.data?.message || 'Could not join this examination.');
+      setError(requestError.response?.data?.message || requestError.message || 'Could not join this examination.');
     } finally {
       setJoining(false);
     }
@@ -62,11 +70,11 @@ function LabExamInstructions() {
   if (!exam) return <main className="min-h-screen page-shell p-8"><p className="mx-auto max-w-3xl rounded-2xl bg-red-50 p-5 text-red-700">{error || 'Examination not found.'}</p></main>;
 
   const checks = [
+    [true, 'Full-screen mode is required; leaving it ends the attempt'],
+    [true, 'Copy, cut and paste are blocked; attempting them ends the attempt'],
     [exam.proctoring?.tabVisibility, 'Tab visibility changes are recorded'],
     [exam.proctoring?.windowFocus, 'Window focus changes are recorded'],
-    [exam.proctoring?.clipboard, 'Copy, paste and cut attempts are recorded'],
     [exam.proctoring?.contextMenu, 'Context menu attempts are recorded'],
-    [exam.proctoring?.fullscreen, 'Leaving full screen is recorded'],
     [exam.proctoring?.camera || exam.proctoring?.facePresence, 'Camera permission is required'],
     [exam.proctoring?.microphone, 'Microphone permission is required'],
     [exam.proctoring?.audioActivity, 'Basic audio activity is checked in your browser']
@@ -96,7 +104,7 @@ function LabExamInstructions() {
               <li>Use the problem navigation to move between questions. Your code is saved automatically.</li>
               <li>Run checks only the visible examples. Submit evaluates your code against hidden tests.</li>
               <li>Browser monitoring records selected events. It does not prove misconduct and cannot detect every external device or shortcut.</li>
-              {exam.proctoring?.terminateOnRouteChange && <li>Navigating away from the examination route terminates this attempt.</li>}
+              <li>Navigating away from the examination route, leaving full screen, or attempting copy, cut or paste terminates this attempt immediately.</li>
               {exam.proctoring?.autoSubmitOnMaxViolations && exam.proctoring?.maxViolations >= 3 && <li>The server terminates the attempt at {exam.proctoring.maxViolations} recorded violations.</li>}
               {exam.autoSubmit && <li>Your attempt is submitted when its server-set timer expires.</li>}
             </ul>
@@ -112,7 +120,7 @@ function LabExamInstructions() {
           </div>
           {error && <div role="alert" className="rounded-2xl border border-red-100 bg-red-50 p-4 text-sm text-red-700">{error}</div>}
           <button type="button" onClick={join} disabled={joining || exam.status !== 'ACTIVE'} className="btn-professional flex w-full items-center justify-center gap-2 py-3.5 disabled:cursor-not-allowed disabled:opacity-50">
-            {joining ? <><span className="h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent" />Preparing your attempt…</> : <><Clock3 className="h-4 w-4" />{exam.status === 'ACTIVE' ? 'Join examination' : `Exam ${exam.status.toLowerCase()}`}</>}
+            {joining ? <><span className="h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent" />Preparing your attempt…</> : <><Clock3 className="h-4 w-4" />{exam.status === 'ACTIVE' ? 'Enter fullscreen and join' : `Exam ${exam.status.toLowerCase()}`}</>}
           </button>
           {exam.proctoring?.camera || exam.proctoring?.microphone || exam.proctoring?.audioActivity ? <button type="button" onClick={checkMedia} className="w-full rounded-xl border border-stone-200 bg-white px-4 py-3 text-sm font-semibold text-stone-700">Check devices now</button> : null}
           <p className="text-center text-xs leading-5 text-stone-500">Server time determines your start and deadline. Refreshing the page will reconnect to the same active attempt.</p>

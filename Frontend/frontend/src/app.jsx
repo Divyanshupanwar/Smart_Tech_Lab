@@ -94,8 +94,24 @@ function App(){
       event.preventDefault();
       event.returnValue = '';
     };
+    const reportDocumentExit = () => {
+      const apiBase = (axiosClient.defaults.baseURL || window.location.origin).replace(/\/+$/, '');
+      const eventUrl = `${apiBase}/lab-exams/attempts/${encodeURIComponent(activeExamAttempt._id)}/proctoring-events`;
+      const payload = JSON.stringify({ eventType: 'route_navigation', metadata: { attemptedPath: 'document_exit' } });
+      window.fetch(eventUrl, {
+        method: 'POST',
+        headers: { 'Content-Type': 'text/plain;charset=UTF-8' },
+        credentials: 'include',
+        keepalive: true,
+        body: payload
+      }).catch(() => {});
+    };
     window.addEventListener('beforeunload', protectDocumentExit);
-    return () => window.removeEventListener('beforeunload', protectDocumentExit);
+    window.addEventListener('pagehide', reportDocumentExit);
+    return () => {
+      window.removeEventListener('beforeunload', protectDocumentExit);
+      window.removeEventListener('pagehide', reportDocumentExit);
+    };
   }, [activeExamAttempt, isAuthenticated, user?.role]);
   
   if (loading) {

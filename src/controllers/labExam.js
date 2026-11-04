@@ -16,7 +16,8 @@ const {
     isSubmissionAllowed,
     normalizeLanguage,
     proctoringSeverity,
-    serializeQuestionForStudent
+    serializeQuestionForStudent,
+    shouldTerminateAttempt
 } = require('../utils/examRules');
 
 const PROCTORING_KEYS = [
@@ -80,6 +81,8 @@ const normalizeStarterCode = (entries = []) => {
 const normalizeProctoring = (value = {}) => {
     const config = {};
     for (const key of PROCTORING_KEYS) config[key] = Boolean(value?.[key]);
+    config.clipboard = true;
+    config.fullscreen = true;
     const configuredLimit = value?.maxViolations == null ? 3 : Number(value.maxViolations);
     config.maxViolations = Math.min(100, Math.max(0, Number.isFinite(configuredLimit) ? configuredLimit : 3));
     config.autoSubmitOnMaxViolations = (value?.autoSubmitOnMaxViolations == null || Boolean(value.autoSubmitOnMaxViolations)) && config.maxViolations >= 3;
@@ -236,7 +239,7 @@ const safeExamSummary = (exam, { includeTargets = false } = {}) => {
             marks: item.marks,
             order: item.order
         })),
-        proctoring: exam.proctoring,
+        proctoring: normalizeProctoring(exam.proctoring),
         autoSubmit: exam.autoSubmit,
         published: exam.published,
         status: deriveExamStatus(exam),
@@ -924,25 +927,30 @@ const reportProctoringEvent = async (req, res) => {
         if (!Object.hasOwn(EVENT_CONFIG, eventType) && !['connection_interrupted', 'route_navigation'].includes(eventType)) {
             return res.status(400).json({ message: 'Unsupported proctoring event.' });
         }
+        const proctoringPolicy = normalizeProctoring(context.exam.proctoring);
+        const immediateEvent = ['fullscreen_exit', 'copy', 'paste', 'cut'].includes(eventType);
         const isDeviceDisconnectEnabled = eventType === 'camera_disconnected'
-            ? context.exam.proctoring?.camera || context.exam.proctoring?.facePresence
+            ? proctoringPolicy.camera || proctoringPolicy.facePresence
             : eventType === 'microphone_disconnected'
-                ? context.exam.proctoring?.microphone || context.exam.proctoring?.audioActivity
+                ? proctoringPolicy.microphone || proctoringPolicy.audioActivity
                 : null;
-        if (EVENT_CONFIG[eventType] && !(isDeviceDisconnectEnabled ?? context.exam.proctoring?.[EVENT_CONFIG[eventType]])) {
+        if (EVENT_CONFIG[eventType] && !immediateEvent && !(isDeviceDisconnectEnabled ?? proctoringPolicy[EVENT_CONFIG[eventType]])) {
             return res.status(400).json({ message: 'This proctoring check is not enabled for the examination.' });
         }
 
         const receivedAt = new Date();
-        const maxViolations = Number(context.exam.proctoring?.maxViolations) || 0;
-        const useViolationThreshold = Boolean(context.exam.proctoring?.autoSubmitOnMaxViolations && maxViolations >= 3);
-        const routeNavigationTerminates = eventType === 'route_navigation' && context.exam.proctoring?.terminateOnRouteChange !== false;
+        const maxViolations = proctoringPolicy.maxViolations;
+        const useViolationThreshold = Boolean(proctoringPolicy.autoSubmitOnMaxViolations && maxViolations >= 3);
+        const routeNavigationTerminates = eventType === 'route_navigation' && proctoringPolicy.terminateOnRouteChange;
         const countsAsViolation = eventType !== 'connection_interrupted';
+        const immediateTermination = immediateEvent || routeNavigationTerminates
+            ? shouldTerminateAttempt(proctoringPolicy, eventType, (Number(context.attempt.violationCount) || 0) + (countsAsViolation ? 1 : 0))
+            : false;
         const nextViolationCount = countsAsViolation
             ? { $add: [{ $ifNull: ['$violationCount', 0] }, 1] }
             : { $ifNull: ['$violationCount', 0] };
         const terminationCondition = { $or: [
-            { $literal: routeNavigationTerminates },
+            { $literal: immediateTermination },
             { $and: [
                 { $literal: countsAsViolation },
                 { $literal: useViolationThreshold },
@@ -958,13 +966,21 @@ const reportProctoringEvent = async (req, res) => {
                 submittedAt: { $cond: [terminationCondition, { $literal: receivedAt }, '$submittedAt'] },
                 terminationReason: { $cond: [
                     terminationCondition,
-                    { $cond: [{ $literal: routeNavigationTerminates }, 'route_navigation', 'violation_threshold'] },
+                    { $cond: [
+                        { $literal: routeNavigationTerminates },
+                        'route_navigation',
+                        { $cond: [
+                            { $literal: eventType === 'fullscreen_exit' },
+                            'fullscreen_exit',
+                            { $cond: [{ $literal: immediateEvent }, 'clipboard_violation', 'violation_threshold'] }
+                        ] }
+                    ] },
                     { $ifNull: ['$terminationReason', ''] }
                 ] },
                 flagged: { $or: [
                     { $ifNull: ['$flagged', false] },
                     { $and: [{ $literal: countsAsViolation }, { $gte: [nextViolationCount, { $literal: 3 }] }] },
-                    { $literal: eventType === 'route_navigation' }
+                    { $literal: immediateTermination }
                 ] }
             } }
         ], { new: true });
@@ -1000,7 +1016,7 @@ const reportProctoringEvent = async (req, res) => {
             flagged: updatedAttempt.flagged,
             terminated,
             terminationReason: updatedAttempt.terminationReason || '',
-            autoSubmitted: terminated
+            autoSubmitted: terminated && context.exam.autoSubmit
         });
     } catch (error) {
         console.error('Unable to record proctoring event:', error);

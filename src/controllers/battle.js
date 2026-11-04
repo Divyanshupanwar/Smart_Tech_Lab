@@ -7,13 +7,13 @@ const User = require('../models/user');
 const Problem = require('../models/problem');
 const redisClient = require('../config/redis');
 const { getLanguageById, submitBatch, submitToken } = require('../utils/problemUtility');
-const { determineWinner, isBattleMember, isValidBattlePair, scoreSubmission, validateBattleConfig } = require('../utils/battleRules');
+const { compareBattleRank, determineWinners, isBattleMember, isValidBattleGroup, scoreSubmission, validateBattleConfig } = require('../utils/battleRules');
 const { emitToBattle, emitToUser } = require('../services/battleRealtime');
 const {
     acquireLock,
     buildQueueKey,
     cancelQueue,
-    findOpponent,
+    findBattleGroup,
     playerKey,
     releaseBattlePlayers,
     releaseLock,
@@ -76,6 +76,7 @@ const safeBattle = (battle, currentUserId) => {
             acceptedCount: player.acceptedCount,
             connectionStatus: player.connectionStatus,
             disconnectedAt: player.disconnectedAt,
+            forfeitedAt: player.forfeitedAt,
             finishedAt: player.finishedAt,
             isYou: asId(player.userId) === String(currentUserId)
         };
@@ -95,6 +96,8 @@ const safeBattle = (battle, currentUserId) => {
         endsAt: battle.endsAt,
         completedAt: battle.completedAt,
         winnerId: battle.winnerId,
+        winnerIds: battle.winnerIds?.length ? battle.winnerIds : (battle.winnerId ? [battle.winnerId] : []),
+        playerCount: battle.playerCount || battle.players.length,
         resultReason: battle.resultReason,
         players: playerViews,
         questions: battle.questions.map((question, index) => ({
@@ -132,7 +135,7 @@ const emitMatch = async (battle) => {
 };
 
 const createBattle = async ({ userIds, config, mode, invitationId = null, reservationToken = null }) => {
-    if (!isValidBattlePair(userIds)) throw new Error('A battle requires two different students.');
+    if (!isValidBattleGroup(userIds)) throw new Error('A battle requires 2 to 16 different students.');
     const questions = await pickQuestions(config);
     const now = new Date();
     const startsAt = new Date(now.getTime() + 5000);
@@ -147,6 +150,7 @@ const createBattle = async ({ userIds, config, mode, invitationId = null, reserv
         incorrectPenalty: 10,
         questions,
         players: userIds.map((userId) => ({ userId, score: 0, acceptedCount: 0, connectionStatus: 'connected', acceptedQuestions: [] })),
+        playerCount: userIds.length,
         invitationId,
         matchedAt: now,
         startsAt,
@@ -312,17 +316,16 @@ const findMatch = async (req, res) => {
         if (await Battle.exists({ 'players.userId': req.result._id, status: { $in: ['COUNTDOWN', 'ACTIVE'] } })) {
             return res.status(409).json({ message: 'You already have an active battle.' });
         }
-        const result = await findOpponent(req.result._id, config);
+        const result = await findBattleGroup(req.result._id, config);
         if (result.state === 'already_active') {
             if (result.activeValue === 'WAITING') return res.json({ success: true, status: 'WAITING' });
             return res.status(409).json({ message: 'You already have an active battle.' });
         }
         if (result.state === 'waiting') return res.status(202).json({ success: true, status: 'WAITING' });
 
-        const userIds = [req.result._id, new mongoose.Types.ObjectId(result.opponentId)];
+        const userIds = [req.result._id, ...result.playerIds.map((id) => new mongoose.Types.ObjectId(id))];
         matchedIds = userIds;
-        const configToUse = result.opponentConfig;
-        const battle = await createBattle({ userIds, config: configToUse, mode: 'random' });
+        const battle = await createBattle({ userIds, config, mode: 'random' });
         return res.status(201).json({ success: true, status: battle.status, battle: safeBattle(await Battle.findById(battle._id).populate('players.userId', 'firstName lastName emailID'), req.result._id) });
     } catch (error) {
         if (matchedIds.length) await releaseMatchedPlayers(matchedIds).catch(() => {});
@@ -500,19 +503,21 @@ const isoWeekKey = (now = new Date()) => {
 
 const applyFinalStats = async (battle) => {
     const weekKey = isoWeekKey(battle.completedAt || new Date());
+    const winnerIds = (battle.winnerIds?.length ? battle.winnerIds : (battle.winnerId ? [battle.winnerId] : [])).map(asId);
     for (const player of battle.players) {
         const id = player.userId;
-        const isWinner = asId(battle.winnerId) === asId(id);
-        const isDraw = !battle.winnerId;
+        const isWinner = winnerIds.includes(asId(id));
+        const isDraw = winnerIds.length === 0 || (winnerIds.length > 1 && isWinner);
         const loss = !isWinner && !isDraw;
+        const ratingChange = winnerIds.length === 1 && isWinner ? 20 : loss ? -15 : 0;
         const stats = await StudentBattleStats.findOneAndUpdate({ studentId: id }, {
             $inc: {
-                wins: isWinner ? 1 : 0,
+                wins: winnerIds.length === 1 && isWinner ? 1 : 0,
                 losses: loss ? 1 : 0,
                 draws: isDraw ? 1 : 0,
                 totalBattles: 1,
                 totalScore: player.score,
-                rating: isWinner ? 20 : loss ? -15 : 0
+                rating: ratingChange
             }
         }, { upsert: true, new: true, setDefaultsOnInsert: true });
         if (redisClient.isOpen) {
@@ -523,20 +528,29 @@ const applyFinalStats = async (battle) => {
     }
 };
 
-const completeBattle = async (battle, winnerId, reason, now = new Date()) => {
+const completeBattle = async (battle, winners, reason, now = new Date()) => {
+    const requestedWinnerIds = Array.isArray(winners) ? winners : (winners ? [winners] : []);
+    const participantIds = new Set(battle.players.map((player) => asId(player.userId)));
+    const winnerIds = [...new Set(requestedWinnerIds.map(asId).filter((id) => participantIds.has(id)))];
     const completed = await Battle.findOneAndUpdate({
         _id: battle._id,
         status: { $in: ['COUNTDOWN', 'ACTIVE', 'MATCHED'] },
         pendingSubmissions: 0
     }, {
-        $set: { status: 'COMPLETED', winnerId: winnerId || null, completedAt: now, resultReason: reason }
+        $set: {
+            status: 'COMPLETED',
+            winnerId: winnerIds.length === 1 ? winnerIds[0] : null,
+            winnerIds,
+            completedAt: now,
+            resultReason: reason
+        }
     }, { new: true });
     if (!completed) return null;
     await applyFinalStats(completed);
     const ids = completed.players.map((player) => player.userId);
     await releaseBattlePlayers(ids, completed._id).catch(() => {});
     await updateLiveLeaderboard(completed).catch(() => {});
-    const payload = { battleId: completed._id, winnerId: completed.winnerId, status: completed.status, reason, completedAt: completed.completedAt };
+    const payload = { battleId: completed._id, winnerId: completed.winnerId, winnerIds: completed.winnerIds, status: completed.status, reason, completedAt: completed.completedAt };
     emitToBattle(completed._id, 'battle:completed', payload);
     for (const id of ids) emitToUser(id, 'battle:completed', payload);
     return completed;
@@ -637,15 +651,12 @@ const submitBattleCode = async (req, res) => {
             memory,
             errorMessage
         };
-        if (player.finishedAt) {
-            const currentBattle = await Battle.findById(battleId);
-            const pending = currentBattle?.pendingSubmissions || 0;
-            const winner = determineWinner(currentBattle?.players || latestBattle.players);
-            const completed = pending === 0 && winner
-                ? await completeBattle(currentBattle, winner, 'first_to_solve', new Date())
-                : null;
-            if (completed) response.battleStatus = completed.status;
-        }
+        const currentBattle = await Battle.findById(battleId);
+        const allPlayersFinished = currentBattle?.players?.every((item) => item.finishedAt || item.forfeitedAt);
+        const completed = currentBattle?.pendingSubmissions === 0 && allPlayersFinished
+            ? await completeBattle(currentBattle, determineWinners(currentBattle.players), 'all_players_finished', new Date())
+            : null;
+        if (completed) response.battleStatus = completed.status;
         return res.status(201).json({ success: true, submission: response });
     } catch (error) {
         if (error.code === 11000) return res.status(409).json({ message: 'Duplicate submission request.' });
@@ -658,6 +669,10 @@ const submitBattleCode = async (req, res) => {
             if (submission?._id) await BattleSubmission.updateOne({ _id: submission._id, status: 'pending' }, {
                 $set: { status: 'error', errorMessage: 'Submission did not finish before its server reservation expired.' }
             }).catch(() => {});
+            const latestBattle = await Battle.findOne({ _id: battleId, status: 'ACTIVE', pendingSubmissions: 0 }).catch(() => null);
+            if (latestBattle?.players?.every((player) => player.finishedAt || player.forfeitedAt)) {
+                await completeBattle(latestBattle, determineWinners(latestBattle.players), 'all_players_finished', new Date()).catch(() => {});
+            }
         }
         await releaseLock(`battle:lock:${battleId}`, lockToken).catch(() => {});
     }
@@ -668,14 +683,17 @@ const getBattleLeaderboard = async (req, res) => {
         const battle = await Battle.findById(req.params.battleId);
         if (!battle) return res.status(404).json({ message: 'Battle not found.' });
         if (!isBattleMember(battle, req.result._id)) return res.status(403).json({ message: 'You are not a player in this battle.' });
-        if (redisClient.isOpen) {
-            const entries = await redisClient.zRangeWithScores(`battle:leaderboard:${battle._id}`, 0, 9, { REV: true });
-            const ids = entries.map((entry) => entry.value);
-            const users = await User.find({ _id: { $in: ids } }).select('_id firstName lastName');
-            const userMap = new Map(users.map((user) => [asId(user._id), user]));
-            return res.json({ success: true, leaderboard: entries.map((entry, index) => ({ rank: index + 1, student: safeStudent(userMap.get(entry.value)), score: entry.score })) });
-        }
-        return res.json({ success: true, leaderboard: battle.players.map((player, index) => ({ rank: index + 1, studentId: player.userId, score: player.score })).sort((a, b) => b.score - a.score) });
+        const players = battle.players.slice().sort(compareBattleRank);
+        const users = await User.find({ _id: { $in: players.map((player) => player.userId) } }).select('_id firstName lastName emailID');
+        const userMap = new Map(users.map((user) => [asId(user._id), user]));
+        return res.json({ success: true, leaderboard: players.map((player, index) => ({
+            rank: index + 1,
+            student: safeStudent(userMap.get(asId(player.userId))),
+            score: player.score,
+            acceptedCount: player.acceptedCount,
+            connectionStatus: player.connectionStatus,
+            forfeited: Boolean(player.forfeitedAt)
+        })) });
     } catch (error) {
         return res.status(500).json({ message: 'Unable to load battle leaderboard.' });
     }
@@ -731,19 +749,44 @@ const processBattles = async () => {
             if (active) emitToBattle(active._id, 'battle:started', { battleId: active._id, startsAt: active.startsAt, endsAt: active.endsAt, serverTime: now.toISOString() });
         }
 
-        const disconnected = await Battle.find({ status: 'ACTIVE', 'players.disconnectedAt': { $lte: new Date(now.getTime() - 60000) } }).limit(100);
+        const disconnectCutoff = new Date(now.getTime() - 60000);
+        const disconnected = await Battle.find({
+            status: 'ACTIVE',
+            players: { $elemMatch: { connectionStatus: 'disconnected', disconnectedAt: { $lte: disconnectCutoff }, finishedAt: null, forfeitedAt: null } }
+        }).limit(100);
         for (const battle of disconnected) {
-            const away = battle.players.find((player) => player.disconnectedAt && now - player.disconnectedAt >= 60000);
-            if (!away) continue;
-            const connected = battle.players.find((player) => asId(player.userId) !== asId(away.userId) && player.connectionStatus === 'connected');
-            const completed = await completeBattle(battle, connected?.userId || null, connected ? 'opponent_timeout' : 'both_players_disconnected', now);
-            if (completed) continue;
+            const expiredPlayers = battle.players.filter((player) => (
+                player.connectionStatus === 'disconnected'
+                && player.disconnectedAt
+                && player.disconnectedAt <= disconnectCutoff
+                && !player.finishedAt
+                && !player.forfeitedAt
+            ));
+            for (const player of expiredPlayers) {
+                await Battle.updateOne({
+                    _id: battle._id,
+                    status: 'ACTIVE',
+                    players: { $elemMatch: {
+                        userId: player.userId,
+                        connectionStatus: 'disconnected',
+                        disconnectedAt: { $lte: disconnectCutoff },
+                        finishedAt: null,
+                        forfeitedAt: null
+                    } }
+                }, { $set: { 'players.$.forfeitedAt': now } });
+            }
+            const current = await Battle.findOne({ _id: battle._id, status: 'ACTIVE' });
+            if (!current) continue;
+            const eligiblePlayers = current.players.filter((player) => !player.forfeitedAt);
+            const allDone = current.players.every((player) => player.finishedAt || player.forfeitedAt);
+            if (eligiblePlayers.length <= 1 || allDone) {
+                await completeBattle(current, determineWinners(current.players), eligiblePlayers.length <= 1 ? 'player_forfeit' : 'all_players_finished', now);
+            }
         }
 
         const ending = await Battle.find({ status: 'ACTIVE', endsAt: { $lte: now }, pendingSubmissions: 0 }).limit(100);
         for (const battle of ending) {
-            const winnerId = determineWinner(battle.players);
-            await completeBattle(battle, winnerId, 'time_expired', now);
+            await completeBattle(battle, determineWinners(battle.players), 'time_expired', now);
         }
     } catch (error) {
         console.error('Battle lifecycle worker failed:', error.message);

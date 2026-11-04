@@ -12,7 +12,7 @@ const proctoringSchema = new Schema({
     windowFocus: { type: Boolean, default: true },
     clipboard: { type: Boolean, default: true },
     contextMenu: { type: Boolean, default: true },
-    fullscreen: { type: Boolean, default: false },
+    fullscreen: { type: Boolean, default: true },
     camera: { type: Boolean, default: false },
     microphone: { type: Boolean, default: false },
     facePresence: { type: Boolean, default: false },

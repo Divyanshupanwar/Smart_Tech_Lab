@@ -13,7 +13,7 @@ const localDateTime = (value) => {
 };
 const commaList = (value) => value.split(',').map((item) => item.trim()).filter(Boolean);
 const pretty = (value) => value?.replaceAll('_', ' ') || '—';
-const proctorDefaults = { tabVisibility: true, windowFocus: true, clipboard: true, contextMenu: true, fullscreen: false, camera: false, microphone: false, audioActivity: false, terminateOnRouteChange: true, maxViolations: 3, autoSubmitOnMaxViolations: true };
+const proctorDefaults = { tabVisibility: true, windowFocus: true, clipboard: true, contextMenu: true, fullscreen: true, camera: false, microphone: false, audioActivity: false, terminateOnRouteChange: true, maxViolations: 3, autoSubmitOnMaxViolations: true };
 const blankQuestion = () => ({ title: '', description: '', constraints: '', marks: 10, visibleJson: '[{"input":"","output":"","explanation":""}]', hiddenJson: '[{"input":"","output":""}]', starterCode: [{ language: 'javascript', code: '' }, { language: 'java', code: '' }, { language: 'c++', code: '' }] });
 
 function AdminLabExams() {
@@ -144,7 +144,7 @@ function AdminLabExams() {
       gracePeriodSeconds: exam.gracePeriodSeconds || 0,
       autoSubmit: exam.autoSubmit
     });
-    setProctoring({ ...proctorDefaults, ...exam.proctoring });
+    setProctoring({ ...proctorDefaults, ...exam.proctoring, clipboard: true, fullscreen: true });
     setSelected({});
     setCustomQuestions([]);
     window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -303,8 +303,9 @@ function AdminLabExams() {
           <div className="space-y-6">
             <section className="card-professional p-6">
               <h2 className="font-bold text-stone-900">Proctoring checks</h2><p className="mt-1 text-xs leading-5 text-stone-500">Browser events are signals. No video or audio is uploaded.</p>
+              <div className="mt-4 rounded-xl border border-blue-100 bg-blue-50 p-3 text-xs leading-5 text-blue-900">Fullscreen is required. Copy, cut and paste are blocked; attempting them or leaving fullscreen ends the attempt immediately.</div>
               <div className="mt-4 space-y-3">{[
-                ['tabVisibility', 'Tab changes'], ['windowFocus', 'Window loses focus'], ['clipboard', 'Copy, paste and cut'], ['contextMenu', 'Context menu'], ['fullscreen', 'Fullscreen exit'], ['camera', 'Camera permission'], ['facePresence', 'Face presence (when supported)'], ['microphone', 'Microphone permission'], ['audioActivity', 'Basic audio activity check']
+                ['tabVisibility', 'Tab changes'], ['windowFocus', 'Window loses focus'], ['contextMenu', 'Context menu'], ['camera', 'Camera permission'], ['facePresence', 'Face presence (when supported)'], ['microphone', 'Microphone permission'], ['audioActivity', 'Basic audio activity check']
               ].map(([key, label]) => <label key={key} className="flex items-center justify-between gap-4 text-sm text-stone-700"><span>{label}</span><input type="checkbox" checked={Boolean(proctoring[key])} onChange={(event) => setProctoring((current) => ({ ...current, [key]: event.target.checked }))} className="h-4 w-4 accent-blue-700" /></label>)}</div>
               <label className="mt-5 flex items-center justify-between gap-4 text-sm text-stone-700"><span>Terminate if the student navigates away from the exam route</span><input type="checkbox" checked={Boolean(proctoring.terminateOnRouteChange)} onChange={(event) => setProctoring((current) => ({ ...current, terminateOnRouteChange: event.target.checked }))} className="h-4 w-4 accent-blue-700" /></label>
               <label className="mt-5 block text-sm font-medium text-stone-700">Violation threshold (0 disables threshold termination)<input type="number" min="0" max="100" value={proctoring.maxViolations} onChange={(event) => setProctoring((current) => { const maxViolations = Number(event.target.value); return { ...current, maxViolations, autoSubmitOnMaxViolations: maxViolations >= 3 && current.autoSubmitOnMaxViolations }; })} className="mt-2 w-full rounded-xl border border-stone-200 bg-stone-50 px-3 py-2.5 text-sm" /></label>

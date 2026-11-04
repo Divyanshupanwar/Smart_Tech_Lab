@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import Editor from '@monaco-editor/react';
 import { NavLink, useParams } from 'react-router';
 import { useSelector } from 'react-redux';
@@ -43,7 +43,6 @@ function BattleRoom() {
   const [presenceEvent, setPresenceEvent] = useState('');
 
   const me = battle?.players?.find((player) => player.isYou);
-  const opponent = battle?.players?.find((player) => !player.isYou);
   const currentQuestion = battle?.questions?.find((question) => question._id === questionId) || battle?.questions?.[0] || null;
   const currentDraftKey = currentQuestion ? draftId(currentQuestion._id, language) : '';
   const currentCode = drafts[currentDraftKey] ?? starterFor(currentQuestion, language);
@@ -54,7 +53,15 @@ function BattleRoom() {
   const battleEndsAt = battle?.endsAt;
   const canEdit = live && secondsLeft !== 0;
   const questionIndex = battle?.questions?.findIndex((question) => question._id === currentQuestion?._id) ?? -1;
-  const scoreRows = useMemo(() => battle?.players || [], [battle?.players]);
+  const scoreRows = useMemo(() => [...(battle?.players || [])].sort((a, b) => {
+    if (Boolean(a.forfeitedAt) !== Boolean(b.forfeitedAt)) return a.forfeitedAt ? 1 : -1;
+    return (b.acceptedCount || 0) - (a.acceptedCount || 0)
+      || (b.score || 0) - (a.score || 0)
+      || (a.finishedAt ? new Date(a.finishedAt).getTime() : Number.POSITIVE_INFINITY)
+        - (b.finishedAt ? new Date(b.finishedAt).getTime() : Number.POSITIVE_INFINITY);
+  }), [battle?.players]);
+  const battlePlayersRef = useRef([]);
+  battlePlayersRef.current = battle?.players || [];
 
   const loadBattle = useCallback(async () => {
     const { data } = await axiosClient.get(`/battle/${battleId}`);
@@ -93,19 +100,25 @@ function BattleRoom() {
       setBattle((current) => current ? {
         ...current,
         players: current.players.map((player) => {
-          const update = event.players.find((item) => item.userId === player.user?._id);
+          const update = event.players.find((item) => String(item.userId) === String(player.user?._id));
           return update ? { ...player, score: update.score, acceptedCount: update.acceptedCount } : player;
         })
       } : current);
-      if (event.latestSubmission?.userId !== user?._id) setPresenceEvent(`${opponent?.user?.firstName || 'Opponent'} submitted a solution.`);
+      if (String(event.latestSubmission?.userId) !== String(user?._id)) {
+        const player = battlePlayersRef.current.find((item) => String(item.user?._id) === String(event.latestSubmission?.userId));
+        setPresenceEvent(`${player?.user?.firstName || 'A player'} submitted a solution.`);
+      }
     });
     socket.on('battle:presence', (event) => {
       setConnectionMap((current) => ({ ...current, [event.userId]: event.status }));
-      if (event.userId !== user?._id) setPresenceEvent(`${opponent?.user?.firstName || 'Opponent'} ${event.status === 'connected' ? 'reconnected' : 'disconnected'}.`);
+      if (String(event.userId) !== String(user?._id)) {
+        const player = battlePlayersRef.current.find((item) => String(item.user?._id) === String(event.userId));
+        setPresenceEvent(`${player?.user?.firstName || 'A player'} ${event.status === 'connected' ? 'reconnected' : 'disconnected'}.`);
+      }
     });
     socket.on('battle:completed', () => { loadBattle().catch(() => {}); });
     return () => socket.disconnect();
-  }, [battleId, loadBattle, opponent?.user?.firstName, user?._id]);
+  }, [battleId, loadBattle, user?._id]);
 
   useEffect(() => {
     if (!battleStatus || finished) return undefined;
@@ -212,27 +225,29 @@ function BattleRoom() {
   if (loading) return <div className="min-h-screen grid place-items-center bg-[#090e19] text-slate-300">Loading battle room…</div>;
   if (!battle) return <main className="min-h-screen bg-[#090e19] p-8 text-slate-200"><div className="mx-auto max-w-2xl rounded-2xl border border-red-400/20 bg-red-400/10 p-6"><p>{loadError}</p><NavLink to="/battle-arena" className="mt-4 inline-block rounded-xl bg-white/10 px-4 py-2">Back to Battle Arena</NavLink></div></main>;
 
-  const opponentConnected = connectionMap[opponent?.user?._id] || opponent?.connectionStatus || 'connected';
-  const winnerIsYou = battle.winnerId && String(battle.winnerId) === String(me?.user?._id);
+  const winnerIds = battle.winnerIds?.length ? battle.winnerIds.map(String) : (battle.winnerId ? [String(battle.winnerId)] : []);
+  const winnerIsYou = winnerIds.includes(String(me?.user?._id));
+  const tiedForFirst = winnerIsYou && winnerIds.length > 1;
+  const connectedCount = battle.players.filter((player) => (connectionMap[player.user?._id] || player.connectionStatus) === 'connected').length;
 
   return (
     <div className="min-h-screen bg-[#090e19] text-slate-100">
       <header className="sticky top-0 z-40 border-b border-white/10 bg-[#0d1422]/95 backdrop-blur"><div className="flex flex-wrap items-center justify-between gap-3 px-4 py-3 lg:px-6">
         <div className="flex min-w-0 items-center gap-3"><NavLink to="/battle-arena" className="rounded-xl p-2 text-slate-400 hover:bg-white/10" aria-label="Back to Battle Arena"><ArrowLeft className="h-4 w-4" /></NavLink><div><p className="text-sm font-bold">{battle.subject} · {battle.difficulty}</p><p className="text-xs text-slate-400">{battle.mode === 'friend' ? 'Friend challenge' : 'Random match'} · {user?.firstName}</p></div></div>
-        <div className="flex flex-wrap items-center gap-2 sm:gap-4"><span className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs ${socketConnected ? 'bg-emerald-500/10 text-emerald-300' : 'bg-red-500/10 text-red-300'}`}>{socketConnected ? <Wifi className="h-3.5 w-3.5" /> : <WifiOff className="h-3.5 w-3.5" />}{socketConnected ? 'Live' : 'Reconnecting'}</span><span className="hidden text-xs text-slate-400 sm:inline">{opponent?.user?.firstName || 'Opponent'} · {opponentConnected}</span><span className="inline-flex items-center gap-2 rounded-xl bg-white/5 px-3 py-2 font-mono text-sm"><Clock3 className="h-4 w-4 text-amber-300" />{secondsLeft == null ? '--:--' : clock(secondsLeft)}</span><button type="button" onClick={toggleFullscreen} className="rounded-xl bg-white/5 p-2 text-slate-300 hover:bg-white/10" title={fullscreen ? 'Exit fullscreen' : 'Enter fullscreen'}><Expand className="h-4 w-4" /></button>{['MATCHED', 'COUNTDOWN'].includes(battle.status) && <button onClick={() => setShowCancel(true)} className="rounded-xl border border-white/10 px-3 py-2 text-xs font-semibold text-slate-300">Cancel match</button>}</div>
+        <div className="flex flex-wrap items-center gap-2 sm:gap-4"><span className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs ${socketConnected ? 'bg-emerald-500/10 text-emerald-300' : 'bg-red-500/10 text-red-300'}`}>{socketConnected ? <Wifi className="h-3.5 w-3.5" /> : <WifiOff className="h-3.5 w-3.5" />}{socketConnected ? 'Live' : 'Reconnecting'}</span><span className="hidden text-xs text-slate-400 sm:inline">{connectedCount}/{battle.playerCount || battle.players.length} players online</span><span className="inline-flex items-center gap-2 rounded-xl bg-white/5 px-3 py-2 font-mono text-sm"><Clock3 className="h-4 w-4 text-amber-300" />{secondsLeft == null ? '--:--' : clock(secondsLeft)}</span><button type="button" onClick={toggleFullscreen} className="rounded-xl bg-white/5 p-2 text-slate-300 hover:bg-white/10" title={fullscreen ? 'Exit fullscreen' : 'Enter fullscreen'}><Expand className="h-4 w-4" /></button>{['MATCHED', 'COUNTDOWN'].includes(battle.status) && <button onClick={() => setShowCancel(true)} className="rounded-xl border border-white/10 px-3 py-2 text-xs font-semibold text-slate-300">Cancel match</button>}</div>
       </div>
-        <div className="flex items-center justify-between gap-3 border-t border-white/5 px-5 py-2 text-xs text-slate-400"><div className="flex gap-5">{scoreRows.map((player) => <span key={player.user?._id} className={player.isYou ? 'font-semibold text-blue-200' : ''}>{player.isYou ? 'You' : player.user?.firstName}: {player.score} pts · {player.acceptedCount} solved</span>)}</div><span className="hidden sm:inline">{battle.status.replaceAll('_', ' ').toLowerCase()}</span></div>
+        <div className="flex items-center justify-between gap-3 border-t border-white/5 px-5 py-2 text-xs text-slate-400"><div className="flex gap-5 overflow-x-auto">{scoreRows.map((player, index) => <span key={player.user?._id} className={`shrink-0 ${player.isYou ? 'font-semibold text-blue-200' : ''}`}>#{index + 1} {player.isYou ? 'You' : player.user?.firstName}: {player.score} pts · {player.acceptedCount} solved</span>)}</div><span className="hidden shrink-0 sm:inline">{battle.status.replaceAll('_', ' ').toLowerCase()}</span></div>
       </header>
       {presenceEvent && <div className="border-b border-blue-400/10 bg-blue-400/5 px-5 py-2 text-xs text-blue-100">{presenceEvent}</div>}
       {error && <div role="alert" className="flex items-center justify-between border-b border-red-500/20 bg-red-500/10 px-5 py-2 text-xs text-red-100"><span>{error}</span><button onClick={() => setError('')} aria-label="Dismiss">×</button></div>}
 
-      {battle.status !== 'ACTIVE' && !finished ? <main className="grid min-h-[65vh] place-items-center p-6"><div className="max-w-lg text-center"><div className="mx-auto grid h-16 w-16 place-items-center rounded-2xl bg-blue-500/10 text-blue-300"><ShieldCheck className="h-8 w-8" /></div><p className="mt-5 text-xs font-semibold uppercase tracking-widest text-blue-300">{battle.status === 'MATCHED' ? 'Opponent found' : 'Get ready'}</p><h1 className="mt-2 text-3xl font-extrabold">{secondsLeft > 0 ? `${clock(secondsLeft)} until start` : 'Starting your battle…'}</h1><p className="mt-3 text-sm leading-6 text-slate-400">Both players have the same {battle.questions.length} question{battle.questions.length === 1 ? '' : 's'}. Your editor and drafts are private to you.</p></div></main> : finished ? <main className="mx-auto max-w-4xl px-5 py-14"><div className="rounded-3xl border border-white/10 bg-white/[0.03] p-8 text-center"><p className="text-xs font-bold uppercase tracking-widest text-blue-300">Battle complete</p><h1 className="mt-3 text-4xl font-extrabold">{battle.status === 'CANCELLED' ? 'Match cancelled' : !battle.winnerId ? 'Draw game' : winnerIsYou ? 'Victory' : 'Battle lost'}</h1><p className="mt-3 text-sm text-slate-400">{battle.resultReason?.replaceAll('_', ' ')} · {battle.subject} · {battle.difficulty}</p><div className="mx-auto mt-7 grid max-w-lg grid-cols-2 gap-3">{scoreRows.map((player) => <div key={player.user?._id} className="rounded-2xl bg-white/5 p-4"><p className="text-sm font-semibold">{player.isYou ? 'You' : player.user?.firstName}</p><p className="mt-2 font-mono text-2xl font-bold text-blue-200">{player.score}</p><p className="text-xs text-slate-500">{player.acceptedCount} solved</p></div>)}</div><NavLink to="/battle-arena" className="mt-7 inline-flex rounded-xl bg-[#2147ba] px-5 py-3 text-sm font-semibold text-white">Back to arena</NavLink></div></main> : (
+      {battle.status !== 'ACTIVE' && !finished ? <main className="grid min-h-[65vh] place-items-center p-6"><div className="max-w-lg text-center"><div className="mx-auto grid h-16 w-16 place-items-center rounded-2xl bg-blue-500/10 text-blue-300"><ShieldCheck className="h-8 w-8" /></div><p className="mt-5 text-xs font-semibold uppercase tracking-widest text-blue-300">{battle.status === 'MATCHED' ? 'Group ready' : 'Get ready'}</p><h1 className="mt-2 text-3xl font-extrabold">{secondsLeft > 0 ? `${clock(secondsLeft)} until start` : 'Starting your battle…'}</h1><p className="mt-3 text-sm leading-6 text-slate-400">All {battle.playerCount || battle.players.length} players have the same {battle.questions.length} question{battle.questions.length === 1 ? '' : 's'}. Your editor and drafts are private to you.</p></div></main> : finished ? <main className="mx-auto max-w-5xl px-5 py-14"><div className="rounded-3xl border border-white/10 bg-white/[0.03] p-8 text-center"><p className="text-xs font-bold uppercase tracking-widest text-blue-300">Battle complete</p><h1 className="mt-3 text-4xl font-extrabold">{battle.status === 'CANCELLED' ? 'Battle cancelled' : winnerIds.length === 0 ? 'Draw game' : tiedForFirst ? 'Tied for first' : winnerIsYou ? 'Victory' : 'Battle lost'}</h1><p className="mt-3 text-sm text-slate-400">{battle.resultReason?.replaceAll('_', ' ')} · {battle.subject} · {battle.difficulty}</p><div className="mx-auto mt-7 grid max-w-4xl grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">{scoreRows.map((player, index) => <div key={player.user?._id} className={`rounded-2xl p-4 ${winnerIds.includes(String(player.user?._id)) ? 'bg-emerald-500/10' : 'bg-white/5'}`}><p className="text-xs text-slate-500">Place #{index + 1}</p><p className="mt-1 text-sm font-semibold">{player.isYou ? 'You' : player.user?.firstName}</p><p className="mt-2 font-mono text-2xl font-bold text-blue-200">{player.score}</p><p className="text-xs text-slate-500">{player.acceptedCount} solved</p></div>)}</div><NavLink to="/battle-arena" className="mt-7 inline-flex rounded-xl bg-[#2147ba] px-5 py-3 text-sm font-semibold text-white">Back to arena</NavLink></div></main> : (
         <main className="grid min-h-[calc(100vh-110px)] lg:grid-cols-[minmax(320px,0.9fr)_minmax(460px,1.1fr)]">
           <section className="flex min-h-[42vh] flex-col border-b border-white/10 lg:min-h-0 lg:border-b-0 lg:border-r">
             <div className="flex gap-1 overflow-x-auto border-b border-white/10 px-3 py-2">{battle.questions.map((question, index) => <button key={question._id} onClick={() => changeQuestion(question)} className={`shrink-0 rounded-lg px-3 py-2 text-xs font-semibold ${question._id === currentQuestion?._id ? 'bg-[#2147ba] text-white' : 'text-slate-400 hover:bg-white/5'}`}>Q{index + 1}<span className="ml-1.5 opacity-70">{question.points} pts</span></button>)}</div>
             <div className="flex gap-4 border-b border-white/10 px-4 py-3 text-xs"><button onClick={() => setActiveTab('problem')} className={activeTab === 'problem' ? 'font-semibold text-white' : 'text-slate-400'}>Problem</button><button onClick={() => setActiveTab('tests')} className={activeTab === 'tests' ? 'font-semibold text-white' : 'text-slate-400'}>Visible tests</button></div>
             <div className="min-h-0 flex-1 overflow-y-auto p-5 lg:p-6">{activeTab === 'problem' ? <div className="mx-auto max-w-3xl"><h1 className="text-2xl font-bold">{currentQuestion?.title}</h1><div className="mt-4 whitespace-pre-wrap text-sm leading-7 text-slate-300">{currentQuestion?.description}</div>{currentQuestion?.constraints && <div className="mt-7"><h2 className="mb-2 text-sm font-semibold">Constraints</h2><pre className="whitespace-pre-wrap rounded-xl border border-white/10 bg-white/[0.03] p-4 text-xs leading-6 text-slate-300">{currentQuestion.constraints}</pre></div>}{currentQuestion?.examples?.map((example, index) => <div key={index} className="mt-7"><h2 className="mb-2 text-sm font-semibold">Example {index + 1}</h2><div className="grid rounded-xl border border-white/10 bg-white/[0.03] text-xs sm:grid-cols-2"><div className="p-4"><p className="mb-2 text-slate-500">Input</p><pre className="whitespace-pre-wrap">{example.input}</pre></div><div className="border-t border-white/10 p-4 sm:border-l sm:border-t-0"><p className="mb-2 text-slate-500">Output</p><pre className="whitespace-pre-wrap">{example.output}</pre></div>{example.explanation && <p className="border-t border-white/10 p-4 text-slate-400 sm:col-span-2">{example.explanation}</p>}</div></div>)}<div className="mt-8 flex justify-between border-t border-white/10 pt-4"><button disabled={questionIndex <= 0} onClick={() => changeQuestion(battle.questions[questionIndex - 1])} className="inline-flex items-center gap-1 text-xs text-slate-400 disabled:opacity-30"><ChevronLeft className="h-4 w-4" />Previous</button><button disabled={questionIndex >= battle.questions.length - 1} onClick={() => changeQuestion(battle.questions[questionIndex + 1])} className="inline-flex items-center gap-1 text-xs text-slate-400 disabled:opacity-30">Next<ChevronRight className="h-4 w-4" /></button></div></div> : <div className="space-y-4">{currentQuestion?.visibleTestCases?.map((test, index) => <article key={index} className="rounded-xl border border-white/10 bg-white/[0.03] p-4"><p className="mb-3 text-xs font-semibold">Visible test {index + 1}</p><div className="grid gap-4 sm:grid-cols-2"><div><p className="mb-1 text-[11px] text-slate-500">Input</p><pre className="whitespace-pre-wrap text-xs">{test.input}</pre></div><div><p className="mb-1 text-[11px] text-slate-500">Expected output</p><pre className="whitespace-pre-wrap text-xs">{test.output}</pre></div></div></article>)}</div>}</div>
-            <div className="flex items-center justify-between border-t border-white/10 px-4 py-3 text-xs text-slate-400"><span>Independent editor · Draft {saveStatus}</span><span>{opponentConnected === 'connected' ? 'Opponent online' : 'Opponent disconnected'}</span></div>
+            <div className="flex items-center justify-between border-t border-white/10 px-4 py-3 text-xs text-slate-400"><span>Independent editor · Draft {saveStatus}</span><span>{connectedCount} players online</span></div>
           </section>
           <section className="flex min-h-[65vh] flex-col lg:min-h-0"><div className="flex flex-wrap items-center justify-between gap-3 border-b border-white/10 px-4 py-3"><span className="text-xs text-slate-300">Your private workspace · {labels[language]}</span><select value={language} disabled={!canEdit} onChange={(event) => changeLanguage(event.target.value)} className="rounded-lg border border-white/10 bg-[#131d2d] px-3 py-2 text-xs text-slate-200">{Object.entries(labels).map(([key, label]) => <option key={key} value={key}>{label}</option>)}</select></div>
             <div className="min-h-[320px] flex-1"><Editor height="100%" language={editorLanguages[language]} value={currentCode} onChange={(value) => changeCode(value || '')} theme="vs-dark" options={{ readOnly: !canEdit, minimap: { enabled: false }, fontSize: 14, scrollBeyondLastLine: false, automaticLayout: true, tabSize: 2, insertSpaces: true, wordWrap: 'on', padding: { top: 16, bottom: 16 } }} /></div>
@@ -241,7 +256,7 @@ function BattleRoom() {
           </section>
         </main>
       )}
-      <footer className="flex items-center justify-center gap-2 border-t border-white/10 px-4 py-3 text-xs text-slate-500"><ShieldCheck className="h-3.5 w-3.5 text-emerald-400" />Scores and winner are decided by verified server results. Your source is never sent to your opponent.</footer>
+      <footer className="flex items-center justify-center gap-2 border-t border-white/10 px-4 py-3 text-xs text-slate-500"><ShieldCheck className="h-3.5 w-3.5 text-emerald-400" />Scores and winners are decided by verified server results. Your source is never sent to other players.</footer>
       {showCancel && <div className="fixed inset-0 z-50 grid place-items-center bg-black/70 p-5"><div className="w-full max-w-md rounded-2xl border border-white/10 bg-[#121c2c] p-6"><h2 className="text-lg font-bold">Cancel this match?</h2><p className="mt-2 text-sm text-slate-400">You can cancel before the countdown ends.</p><div className="mt-6 flex justify-end gap-3"><button onClick={() => setShowCancel(false)} className="rounded-xl border border-white/10 px-4 py-2 text-sm">Keep match</button><button onClick={cancelBeforeStart} className="rounded-xl bg-red-600 px-4 py-2 text-sm font-semibold">Cancel match</button></div></div></div>}
     </div>
   );

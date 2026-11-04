@@ -30,7 +30,7 @@ const examAttemptSchema = new Schema({
     totalScore: { type: Number, default: 0, min: 0 },
     violationCount: { type: Number, default: 0, min: 0 },
     flagged: { type: Boolean, default: false },
-    terminationReason: { type: String, enum: ['', 'route_navigation', 'violation_threshold'], default: '' },
+    terminationReason: { type: String, enum: ['', 'route_navigation', 'fullscreen_exit', 'clipboard_violation', 'violation_threshold'], default: '' },
     studentStatus: { type: String, enum: ['active', 'disconnected', 'submitted'], default: 'active' }
 }, { timestamps: true });
 

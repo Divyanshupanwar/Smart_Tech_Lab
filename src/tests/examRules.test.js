@@ -117,6 +117,10 @@ test('only the creator or an administrator can manage and monitor an examination
 test('serious proctoring policy terminates route exits and threshold violations server-side', () => {
     assert.equal(shouldTerminateAttempt({ terminateOnRouteChange: true }, 'route_navigation', 1), true);
     assert.equal(shouldTerminateAttempt({ terminateOnRouteChange: false }, 'route_navigation', 1), false);
+    assert.equal(shouldTerminateAttempt({ fullscreen: true }, 'fullscreen_exit', 1), true);
+    assert.equal(shouldTerminateAttempt({ clipboard: true }, 'copy', 1), true);
+    assert.equal(shouldTerminateAttempt({ clipboard: true }, 'paste', 1), true);
+    assert.equal(shouldTerminateAttempt({ clipboard: true }, 'cut', 1), true);
     assert.equal(shouldTerminateAttempt({ autoSubmitOnMaxViolations: true, maxViolations: 3 }, 'tab_hidden', 2), false);
     assert.equal(shouldTerminateAttempt({ autoSubmitOnMaxViolations: true, maxViolations: 3 }, 'tab_hidden', 3), true);
     assert.equal(shouldTerminateAttempt({ autoSubmitOnMaxViolations: true, maxViolations: 2 }, 'tab_hidden', 5), false);

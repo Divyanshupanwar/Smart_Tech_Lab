@@ -28,6 +28,16 @@ const {
 
 const router = express.Router();
 
+const parseProctoringBeacon = (req, res, next) => {
+    if (typeof req.body !== 'string') return next();
+    try {
+        req.body = JSON.parse(req.body);
+        return next();
+    } catch {
+        return res.status(400).json({ message: 'Invalid proctoring event.' });
+    }
+};
+
 router.get('/', userMiddleware, listExams);
 router.post('/', teacherMiddleware, createExam);
 router.get('/attempts/active', userMiddleware, getMyActiveAttempt);
@@ -37,7 +47,7 @@ router.post('/attempts/:attemptId/questions/:questionId/run', userMiddleware, ex
 router.post('/attempts/:attemptId/questions/:questionId/submit', userMiddleware, examRateLimiter('submit'), submitQuestion);
 router.post('/attempts/:attemptId/finish', userMiddleware, finishAttempt);
 router.post('/attempts/:attemptId/heartbeat', userMiddleware, heartbeatAttempt);
-router.post('/attempts/:attemptId/proctoring-events', userMiddleware, examRateLimiter('proctor'), reportProctoringEvent);
+router.post('/attempts/:attemptId/proctoring-events', express.text({ type: 'text/plain', limit: '4kb' }), parseProctoringBeacon, userMiddleware, examRateLimiter('proctor'), reportProctoringEvent);
 
 router.get('/:examId/participants', teacherMiddleware, listParticipants);
 router.get('/:examId/results.csv', teacherMiddleware, exportResultsCsv);
